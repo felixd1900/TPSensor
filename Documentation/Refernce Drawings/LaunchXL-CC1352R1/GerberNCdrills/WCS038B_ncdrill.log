@@ -1,0 +1,76 @@
+(---------------------------------------------------------------------)
+(                                                                     )
+(    NC DRILL Log                                                     )
+(                                                                     )
+(    Drawing          : LAUNCHXL-CC1352R1.brd                         )
+(    Software Version : 17.2S041                                      )
+(    Date/Time        : Wed Nov 07 09:52:01 2018                      )
+(                                                                     )
+(---------------------------------------------------------------------)
+
+
+
+ Processing NC Parameters file 'nc_param.txt' ...
+
+ NC PARAMETERS
+ -------------
+
+ FORMAT   		3.5
+ MACHINE-OFFSET		x:0.00000	y:0.00000   (mm)
+ FEEDRATE		1
+ COORDINATES		ABSOLUTE
+ OUTPUT-UNITS		METRIC
+ TOOL-ORDER		INCREASING
+ REPEAT-CODES		YES
+ SUPPRESS-LEAD-ZEROES	NO
+ SUPPRESS-TRAIL-ZEROES	NO
+ SUPPRESS-EQUAL		NO
+ TOOL-SELECT		NO
+ HEADER			none
+ LEADER			12
+ CODE			ASCII
+ SEPARATE		YES
+ SEPARATE-ROUTING	NO
+ OPTIMIZE_DRILLING	NO
+ ENHANCED_EXCELLON	NO
+ SCALE			1.000000
+
+ WARNING(SPMHMF-365): This design contains 2 slot holes that can NOT be drilled.
+ WARNING(SPMHMF-366): They can be processed by NC routing instead.
+
+
+ Drill files being output to directory 'C:/projects/LP-BP/launchxl-cc1352r1/design/hw/Cadence/Allegro' ...
+
+
+
+     'LAUNCHXL-CC1352R1-1-4.drl' created for holes connecting TOP and BOTTOM ; Plating = PLATED
+     ------------------------------------------------------------------------------------------
+
+           Num     Size      +/- Tolerance     Plating   Quantity
+
+            1.   0.2000    0.0000/  0.0000      PLATED       1193
+            2.   0.2010    0.0000/  0.0000      PLATED         25
+            3.   1.0500    0.0000/  0.0000      PLATED         75
+            4.   1.1000    0.0000/  0.0000      PLATED          1
+            5.   3.2000    0.0000/  0.0000      PLATED          4
+
+     ---- Total holes:                                       1298
+
+     ---- Total head travel:              33.68 feet (10.27 meters)
+
+
+
+
+     'LAUNCHXL-CC1352R1-1-4-np.drl' created for holes connecting TOP and BOTTOM ; Plating = NON_PLATED
+     -------------------------------------------------------------------------------------------------
+
+           Num     Size      +/- Tolerance     Plating   Quantity
+
+            1.   0.8990    0.0000/  0.0000  NON_PLATED          6
+            2.   1.0000    0.0000/  0.0000  NON_PLATED          3
+            3.   3.2000    0.0000/  0.0000  NON_PLATED          2
+
+     ---- Total holes:                                         11
+
+     ---- Total head travel:              0.94 feet (0.29 meters)
+

@@ -64,7 +64,7 @@
 		)
 		(symbol "ABP2_1_1"
 			(pin input line
-				(at 6.35 5.08 0)
+				(at -8.89 5.08 0)
 				(length 2.54)
 				(name "GND"
 					(effects
@@ -82,7 +82,7 @@
 				)
 			)
 			(pin input line
-				(at 6.35 0 0)
+				(at -8.89 0 0)
 				(length 2.54)
 				(name "VDD"
 					(effects
@@ -100,9 +100,63 @@
 				)
 			)
 			(pin input line
-				(at 6.35 -5.08 0)
+				(at -2.54 -10.16 90)
 				(length 2.54)
 				(name "EOC"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number ""
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin input line
+				(at 2.54 -10.16 90)
+				(length 2.54)
+				(name "NC"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number ""
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin input line
+				(at 8.89 5.08 180)
+				(length 2.54)
+				(name "SDA"
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+				(number ""
+					(effects
+						(font
+							(size 1.27 1.27)
+						)
+					)
+				)
+			)
+			(pin input line
+				(at 8.89 0 180)
+				(length 2.54)
+				(name "SCL"
 					(effects
 						(font
 							(size 1.27 1.27)
