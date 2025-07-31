@@ -1,0 +1,6 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "Pressure_Sensor")(type "KiCad")(uri "C:/Git/TPSensor/PCB/TPSensor/Libraries/Pressure_Sensors/Pressure_Sensors.kicad_sym")(options "")(descr ""))
+  (lib (name "STM32L052C8T6")(type "KiCad")(uri "C:/Git/TPSensor/PCB/TPSensor/Libraries/ul_STM32L052C8T6/KiCADv6/2025-07-31_12-55-18.kicad_sym")(options "")(descr ""))
+  (lib (name "SX1262")(type "KiCad")(uri "C:/Git/TPSensor/PCB/TPSensor/Libraries/ul_SX1262IMLTRT/KiCADv6/2025-07-31_13-13-15.kicad_sym")(options "")(descr ""))
+)
