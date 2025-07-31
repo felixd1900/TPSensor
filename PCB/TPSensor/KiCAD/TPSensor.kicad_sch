@@ -2408,10 +2408,22 @@
 		)
 	)
 	(junction
+		(at 154.94 50.8)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "0faf9dfe-9cb3-487a-b398-876796a82350")
+	)
+	(junction
 		(at 63.5 172.72)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "5e0f5e67-315c-4ab8-804c-9556681b0608")
+	)
+	(junction
+		(at 152.4 50.8)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "7095930b-ec6e-433b-b360-4ad234c2cb9d")
 	)
 	(junction
 		(at 86.36 95.25)
@@ -2437,6 +2449,26 @@
 	)
 	(wire
 		(pts
+			(xy 154.94 50.8) (xy 152.4 50.8)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "192234e7-8f15-4e22-a482-411d1ba9adf5")
+	)
+	(wire
+		(pts
+			(xy 152.4 50.8) (xy 152.4 54.61)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "193b914b-3f5e-49ff-90bf-e29a12029b7e")
+	)
+	(wire
+		(pts
 			(xy 86.36 95.25) (xy 86.36 97.79)
 		)
 		(stroke
@@ -2454,6 +2486,16 @@
 			(type default)
 		)
 		(uuid "263a83aa-4846-4dc5-908d-f4c02cdc84b9")
+	)
+	(wire
+		(pts
+			(xy 201.93 50.8) (xy 154.94 50.8)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2c5a44f1-b9d3-4500-8665-75659298600d")
 	)
 	(wire
 		(pts
@@ -2497,6 +2539,16 @@
 	)
 	(wire
 		(pts
+			(xy 149.86 50.8) (xy 149.86 54.61)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "718d6777-9345-4c7f-b277-4344265a44c2")
+	)
+	(wire
+		(pts
 			(xy 77.47 177.8) (xy 77.47 181.61)
 		)
 		(stroke
@@ -2527,6 +2579,16 @@
 	)
 	(wire
 		(pts
+			(xy 152.4 50.8) (xy 149.86 50.8)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9ef86f32-7a09-4da1-8d0d-71d351fde295")
+	)
+	(wire
+		(pts
 			(xy 86.36 95.25) (xy 92.71 95.25)
 		)
 		(stroke
@@ -2534,6 +2596,16 @@
 			(type default)
 		)
 		(uuid "a8ec5440-15b4-4106-a9bc-86078e39da4d")
+	)
+	(wire
+		(pts
+			(xy 154.94 50.8) (xy 154.94 54.61)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b2371de2-4a40-461e-857a-aaf592879c24")
 	)
 	(wire
 		(pts
@@ -2574,6 +2646,16 @@
 			(type default)
 		)
 		(uuid "f3c0954b-9a87-4139-8fce-17983c69f19d")
+	)
+	(wire
+		(pts
+			(xy 154.94 135.89) (xy 154.94 146.05)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f4f94543-92d9-41c5-89d4-044aa0eacf55")
 	)
 	(wire
 		(pts
@@ -2851,6 +2933,73 @@
 			(project "TPSensor"
 				(path "/5ae6814b-d76a-4b97-932b-9873c1981299"
 					(reference "#PWR010")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:Earth")
+		(at 154.94 146.05 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "5a1510df-801d-40e4-a8b0-5420a51f97f9")
+		(property "Reference" "#PWR06"
+			(at 154.94 152.4 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 154.94 151.13 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Footprint" ""
+			(at 154.94 146.05 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 154.94 146.05 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"Earth\""
+			(at 154.94 146.05 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "1bbb22b3-2740-4235-856b-447425a1d3c0")
+		)
+		(instances
+			(project "TPSensor"
+				(path "/5ae6814b-d76a-4b97-932b-9873c1981299"
+					(reference "#PWR06")
 					(unit 1)
 				)
 			)
@@ -3766,7 +3915,7 @@
 	)
 	(sheet
 		(at 201.93 41.91)
-		(size 33.02 34.29)
+		(size 16.51 27.94)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
@@ -3790,12 +3939,22 @@
 			)
 		)
 		(property "Sheetfile" "Power.kicad_sch"
-			(at 201.93 76.7846 0)
+			(at 201.93 70.4346 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 				(justify left top)
+			)
+		)
+		(pin "VDD" input
+			(at 201.93 50.8 180)
+			(uuid "53d5e31b-2d46-4436-bbfb-e1070a51d393")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
 			)
 		)
 		(instances
