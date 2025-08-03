@@ -1,0 +1,7 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "CC1101RGPR")(type "KiCad")(uri "${KIPRJMOD}/Libraries/ul_CC1101RGPR/KiCADv6/2025-08-01_21-48-02.kicad_sym")(options "")(descr ""))
+  (lib (name "AMS1117-3.3")(type "KiCad")(uri "${KIPRJMOD}/Libraries/ul_AMS1117-3-3/KiCADv6/2025-08-02_15-59-31.kicad_sym")(options "")(descr ""))
+  (lib (name "STM32L052C8T6")(type "KiCad")(uri "${KIPRJMOD}/Libraries/ul_STM32L052C8T6/KiCADv6/2025-07-31_12-55-18.kicad_sym")(options "")(descr ""))
+  (lib (name "ABP2")(type "KiCad")(uri "${KIPRJMOD}/Libraries/ul_ABP2DANT001PG2A3XX/KiCADv6/2025-08-02_16-32-58.kicad_sym")(options "")(descr ""))
+)
