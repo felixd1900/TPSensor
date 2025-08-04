@@ -2364,7 +2364,7 @@
 	)
 	(wire
 		(pts
-			(xy 161.29 120.65) (xy 161.29 121.92)
+			(xy 161.29 120.65) (xy 161.29 123.19)
 		)
 		(stroke
 			(width 0)
@@ -2524,7 +2524,7 @@
 	)
 	(wire
 		(pts
-			(xy 161.29 129.54) (xy 161.29 133.35)
+			(xy 161.29 130.81) (xy 161.29 133.35)
 		)
 		(stroke
 			(width 0)
@@ -4769,7 +4769,7 @@
 	)
 	(symbol
 		(lib_id "Device:C")
-		(at 161.29 125.73 0)
+		(at 161.29 127 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -4778,7 +4778,7 @@
 		(fields_autoplaced yes)
 		(uuid "a5dd8a7e-6af1-4b86-84f9-6c6866222030")
 		(property "Reference" "C131"
-			(at 165.1 124.4599 0)
+			(at 165.1 125.7299 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4787,7 +4787,7 @@
 			)
 		)
 		(property "Value" "3.9pF"
-			(at 165.1 126.9999 0)
+			(at 165.1 128.2699 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4796,7 +4796,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0402_1005Metric"
-			(at 162.2552 129.54 0)
+			(at 162.2552 130.81 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4805,7 +4805,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 161.29 125.73 0)
+			(at 161.29 127 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -4814,7 +4814,7 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor"
-			(at 161.29 125.73 0)
+			(at 161.29 127 0)
 			(effects
 				(font
 					(size 1.27 1.27)
