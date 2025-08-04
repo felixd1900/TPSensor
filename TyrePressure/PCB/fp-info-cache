@@ -1,4 +1,18 @@
-25212464891196320
+25217728625815532
+ABP2DANT001PG2A3XX
+ABP2DANT&slash_G_HNW
+
+ABP2DANT001PG2A3XX 
+0
+6
+6
+ABP2LANT010BG2A3XX
+SMT-AN_HNW
+
+ABP2LANT010BG2A3XX 
+0
+6
+6
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -2652,20 +2666,27 @@ speaker CUI
 0
 2
 2
-CC1352R1
-RGZ0048A
+CC1101RGPR
+RGP20_2P4X2P4
 
-CC1352R1F3RGZR 
+CC1101RGPR 
 0
-70
-70
-CC1352R1
-RGZ0048A_NV
+21
+21
+CC1101RGPR
+RGP20_2P4X2P4-L
 
-CC1352R1F3RGZR 
+CC1101RGPR 
 0
-49
-49
+30
+22
+CC1101RGPR
+RGP20_2P4X2P4-M
+
+CC1101RGPR 
+0
+30
+22
 Calibration_Scale
 Gauge_10mm_Type1_CopperTop
 Gauge, Massstab, 10mm, CopperTop, Type 1,
