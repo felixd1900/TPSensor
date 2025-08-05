@@ -4814,24 +4814,12 @@
 		(uuid "4da1fe69-25d8-4f4d-acbb-f6d87d56633a")
 	)
 	(no_connect
-		(at 88.9 172.72)
-		(uuid "4f418663-0cc4-446c-a1e2-95f215b2c9e9")
-	)
-	(no_connect
 		(at 203.2 127)
 		(uuid "51a447c9-3e68-4b17-9244-c75266e2fdda")
 	)
 	(no_connect
-		(at 88.9 175.26)
-		(uuid "591146bf-e122-4a2e-90d1-75ca86c91eb9")
-	)
-	(no_connect
 		(at 215.9 124.46)
 		(uuid "72e36c2f-f13f-44c5-a5bb-f76aa7c0dc1a")
-	)
-	(no_connect
-		(at 88.9 170.18)
-		(uuid "80cfd88a-d770-4801-88c7-4c13a511756f")
 	)
 	(no_connect
 		(at 215.9 127)
@@ -4860,10 +4848,6 @@
 	(no_connect
 		(at 124.46 119.38)
 		(uuid "9dc992d8-909a-4846-bd23-ae8567dde9ca")
-	)
-	(no_connect
-		(at 88.9 177.8)
-		(uuid "a8899f30-d3c9-41a9-8363-3c878e04c9f8")
 	)
 	(no_connect
 		(at 124.46 121.92)
@@ -5015,6 +4999,16 @@
 	)
 	(wire
 		(pts
+			(xy 303.53 162.56) (xy 318.77 162.56)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "14dc1fb5-bc51-47cf-8c75-54bc55fb4d1c")
+	)
+	(wire
+		(pts
 			(xy 39.37 157.48) (xy 39.37 154.94)
 		)
 		(stroke
@@ -5112,6 +5106,16 @@
 			(type default)
 		)
 		(uuid "1e4c235d-0234-4557-a569-0c027a4daea1")
+	)
+	(wire
+		(pts
+			(xy 74.93 172.72) (xy 88.9 172.72)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "1f93a82d-6cd7-4276-96d9-5c2961221d41")
 	)
 	(wire
 		(pts
@@ -5365,6 +5369,16 @@
 	)
 	(wire
 		(pts
+			(xy 303.53 170.18) (xy 318.77 170.18)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "49a4861b-c3bb-4476-b0cd-3e27b413ebd1")
+	)
+	(wire
+		(pts
 			(xy 360.68 146.05) (xy 372.11 146.05)
 		)
 		(stroke
@@ -5435,6 +5449,16 @@
 	)
 	(wire
 		(pts
+			(xy 74.93 170.18) (xy 88.9 170.18)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "56612be5-a8b8-433b-9bba-b22f129cf673")
+	)
+	(wire
+		(pts
 			(xy 201.93 129.54) (xy 203.2 129.54)
 		)
 		(stroke
@@ -5492,6 +5516,16 @@
 			(type default)
 		)
 		(uuid "5c0a37d3-ad28-46e9-9e5e-7ec8de706b21")
+	)
+	(wire
+		(pts
+			(xy 303.53 167.64) (xy 318.77 167.64)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5ecf5425-dab1-4918-9e6d-152261f9460d")
 	)
 	(wire
 		(pts
@@ -5825,6 +5859,16 @@
 	)
 	(wire
 		(pts
+			(xy 303.53 165.1) (xy 318.77 165.1)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a1080cea-3958-495c-9a1f-6ada0361b05f")
+	)
+	(wire
+		(pts
 			(xy 58.42 121.92) (xy 88.9 121.92)
 		)
 		(stroke
@@ -5862,6 +5906,16 @@
 			(type default)
 		)
 		(uuid "a55b3831-ddc6-4466-bf68-b8b1032d3861")
+	)
+	(wire
+		(pts
+			(xy 74.93 175.26) (xy 88.9 175.26)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a61418a7-7a71-40bf-89a3-5783bfd3c7ac")
 	)
 	(wire
 		(pts
@@ -6295,6 +6349,16 @@
 	)
 	(wire
 		(pts
+			(xy 74.93 177.8) (xy 88.9 177.8)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ecaa00d4-7681-4641-930b-79735a34b5c3")
+	)
+	(wire
+		(pts
 			(xy 27.94 149.86) (xy 35.56 149.86)
 		)
 		(stroke
@@ -6539,6 +6603,17 @@
 		)
 		(uuid "235160ca-8f11-463e-a34e-8fab11599090")
 	)
+	(label "PB11"
+		(at 318.77 165.1 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(color 255 0 0 1)
+			)
+			(justify right bottom)
+		)
+		(uuid "24d6baed-ba56-4058-8ceb-6365808cb5fd")
+	)
 	(label "SWDIO"
 		(at 232.41 119.38 180)
 		(effects
@@ -6583,6 +6658,17 @@
 		)
 		(uuid "33026fde-2bb1-4f48-b7a0-1c822ea24193")
 	)
+	(label "PB12"
+		(at 74.93 175.26 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(color 255 0 0 1)
+			)
+			(justify left bottom)
+		)
+		(uuid "52952ae0-f668-499b-8c8c-cb0201613b24")
+	)
 	(label "I2C_SDA"
 		(at 31.75 245.11 0)
 		(effects
@@ -6593,6 +6679,17 @@
 			(justify left bottom)
 		)
 		(uuid "55c02d7e-d781-4cd9-a828-03e055331f35")
+	)
+	(label "PB10"
+		(at 74.93 170.18 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(color 255 0 0 1)
+			)
+			(justify left bottom)
+		)
+		(uuid "56d8c713-0d8d-4027-a260-974144655c9f")
 	)
 	(label "I2C_SDA"
 		(at 372.11 140.97 180)
@@ -6715,6 +6812,17 @@
 		)
 		(uuid "a8119ff3-e7c5-4384-8015-3159568f7d21")
 	)
+	(label "PB11"
+		(at 74.93 172.72 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(color 255 0 0 1)
+			)
+			(justify left bottom)
+		)
+		(uuid "ad332801-0c19-4ce2-a835-409a762144ad")
+	)
 	(label "SPI_NSS"
 		(at 139.7 127 180)
 		(effects
@@ -6770,6 +6878,17 @@
 		)
 		(uuid "b8dc3458-8434-4970-a9e1-28f1acb56232")
 	)
+	(label "PB13"
+		(at 74.93 177.8 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(color 255 0 0 1)
+			)
+			(justify left bottom)
+		)
+		(uuid "bea8098a-fe95-4b5b-b80d-2531f87987a7")
+	)
 	(label "SPI_MISO"
 		(at 372.11 109.22 180)
 		(effects
@@ -6803,6 +6922,17 @@
 		)
 		(uuid "d614474d-d1aa-4a88-ae54-49d4affff2aa")
 	)
+	(label "PB10"
+		(at 318.77 162.56 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(color 255 0 0 1)
+			)
+			(justify right bottom)
+		)
+		(uuid "e1c32a34-8754-4105-a3d2-5874ad1377e4")
+	)
 	(label "USB_D-"
 		(at 284.48 114.3 0)
 		(effects
@@ -6813,6 +6943,17 @@
 			(justify left bottom)
 		)
 		(uuid "e3a151d3-2eb1-4a93-bd39-42f9cf6d4de9")
+	)
+	(label "PB12"
+		(at 318.77 167.64 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(color 255 0 0 1)
+			)
+			(justify right bottom)
+		)
+		(uuid "e97b9686-96e1-455d-b732-2096c828157f")
 	)
 	(label "I2C_SCL"
 		(at 73.66 160.02 0)
@@ -6857,6 +6998,17 @@
 			(justify right bottom)
 		)
 		(uuid "fefd1a4d-6474-4224-9d64-c7a86051e027")
+	)
+	(label "PB13"
+		(at 318.77 170.18 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+				(color 255 0 0 1)
+			)
+			(justify right bottom)
+		)
+		(uuid "ff9d037e-4aef-48ca-b241-2740d5cc3bbe")
 	)
 	(symbol
 		(lib_id "power:GND")
@@ -7133,6 +7285,81 @@
 			(project "TPSensor"
 				(path "/5ae6814b-d76a-4b97-932b-9873c1981299"
 					(reference "#PWR016")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Connector_Generic:Conn_01x04")
+		(at 298.45 167.64 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "14fa249c-cb35-4676-9c98-3c1888422e14")
+		(property "Reference" "J9"
+			(at 299.212 156.972 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "DIO_Conn_01x04 (SPI)"
+			(at 309.372 159.004 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical"
+			(at 298.45 167.64 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 298.45 167.64 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Generic connector, single row, 01x04, script generated (kicad-library-utils/schlib/autogen/connector/)"
+			(at 298.45 167.64 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "d2ce5da9-ca5c-46a3-9266-f8798b8abadc")
+		)
+		(pin "3"
+			(uuid "d45fb713-7777-4e4b-a043-d26a3bf127e8")
+		)
+		(pin "4"
+			(uuid "45715bfc-c5da-45c3-9842-6bbf3b9848c3")
+		)
+		(pin "1"
+			(uuid "2d040350-d6a9-4bdf-9e67-a7371571851e")
+		)
+		(instances
+			(project "TPSensor"
+				(path "/5ae6814b-d76a-4b97-932b-9873c1981299"
+					(reference "J9")
 					(unit 1)
 				)
 			)
@@ -9553,10 +9780,9 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "b2b99fc0-77f3-473e-97d1-fdbf6963682d")
 		(property "Reference" "D1"
-			(at 77.1525 176.53 0)
+			(at 78.994 186.182 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9564,7 +9790,7 @@
 			)
 		)
 		(property "Value" "LED"
-			(at 77.1525 179.07 0)
+			(at 78.994 188.214 0)
 			(effects
 				(font
 					(size 1.27 1.27)
