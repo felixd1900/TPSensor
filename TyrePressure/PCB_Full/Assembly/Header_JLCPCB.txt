@@ -1,0 +1,5 @@
+Position File:
+"Designator","Value","Footprint","Mid X","Mid Y","Rotation","Layer"
+
+BOM:
+"Comment","Designator","Footprint","LCSC"
