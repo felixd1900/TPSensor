@@ -1,0 +1,5 @@
+../Core/Src/cc1101.c:3:20:cs_low	1
+../Core/Src/cc1101.c:4:20:cs_high	1
+../Core/Src/cc1101.c:6:6:CC1101_Init	1
+../Core/Src/cc1101.c:27:9:CC1101_Strobe	1
+../Core/Src/cc1101.c:36:19:CC1101_ReadStatusReg	4
