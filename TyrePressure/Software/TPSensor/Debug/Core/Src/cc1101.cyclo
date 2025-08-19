@@ -1,5 +1,9 @@
 ../Core/Src/cc1101.c:3:20:cs_low	1
 ../Core/Src/cc1101.c:4:20:cs_high	1
-../Core/Src/cc1101.c:6:6:CC1101_Init	1
-../Core/Src/cc1101.c:27:9:CC1101_Strobe	1
-../Core/Src/cc1101.c:36:19:CC1101_ReadStatusReg	4
+../Core/Src/cc1101.c:6:16:strobe	1
+../Core/Src/cc1101.c:15:13:write_reg	1
+../Core/Src/cc1101.c:23:13:write_burst	1
+../Core/Src/cc1101.c:32:6:CC1101_Init	1
+../Core/Src/cc1101.c:53:6:CC1101_Apply433_38k4	1
+../Core/Src/cc1101.c:101:19:CC1101_SendPacket	4
+../Core/Src/cc1101.c:127:19:CC1101_SendCounter	1

@@ -59,10 +59,7 @@ volatile uint8_t  abp2_status        = 0;
 volatile uint32_t abp2_press_counts  = 0;
 volatile uint32_t abp2_temp_counts   = 0;
 
-volatile uint8_t cc1101_part = 0xFF;     // PARTNUM
-volatile uint8_t cc1101_ver  = 0xFF;     // VERSION
-volatile HAL_StatusTypeDef cc1101_part_read = HAL_ERROR;
-volatile HAL_StatusTypeDef cc1101_ver_read  = HAL_ERROR;
+volatile uint8_t tx_counter = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -122,26 +119,12 @@ int main(void)
     HAL_GPIO_WritePin(Debug_LED_GPIO_Port, Debug_LED_Pin, GPIO_PIN_RESET);
   }
 
-  // PA4 als CS (GPIO Output), High idle
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  GPIO_InitTypeDef g = {0};
-  g.Pin = GPIO_PIN_4; g.Mode = GPIO_MODE_OUTPUT_PP; g.Pull = GPIO_NOPULL; g.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOA, &g);
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
+  // Nur Initial-High auf deinem bereits im .ioc gesetzten CS:
+  HAL_GPIO_WritePin(SPI1_CS_GPIO_Port, SPI1_CS_Pin, GPIO_PIN_SET);
 
-  // CC1101 init
-  CC1101_Init(&cc1101, &hspi1, GPIOA, GPIO_PIN_4);
-
-  // PARTNUM & VERSION lesen -> in globale Variablen schreiben
-  cc1101_part_read = CC1101_ReadStatusReg(&cc1101, CC1101_PARTNUM, &cc1101_part);
-  cc1101_ver_read  = CC1101_ReadStatusReg(&cc1101, CC1101_VERSION, &cc1101_ver);
-
-  // LED-Feedback optional
-  if (cc1101_part_read == HAL_OK && cc1101_ver_read == HAL_OK) {
-      for (int i=0;i<3;i++){ HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin); HAL_Delay(120); }
-  } else {
-      for (int i=0;i<6;i++){ HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin); HAL_Delay(80); }
-  }
+  // CC1101 starten und auf 433,92 MHz konfigurieren
+  CC1101_Init(&cc1101, &hspi1, SPI1_CS_GPIO_Port, SPI1_CS_Pin);
+  CC1101_Apply433_38k4(&cc1101);
 
   /* USER CODE END 2 */
 
@@ -152,7 +135,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    if (ABP2_ReadAll(&abp2,
+    /*if (ABP2_ReadAll(&abp2,
                      (float*)&abp2_pressure, (float*)&abp2_temperature_c, (float*)&abp2_percentage,
                      (uint8_t*)&abp2_status, (uint32_t*)&abp2_press_counts, (uint32_t*)&abp2_temp_counts) == HAL_OK)
     {
@@ -162,7 +145,12 @@ int main(void)
       HAL_Delay(60);
       HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
     }
-    HAL_Delay(200);
+    HAL_Delay(200); */
+
+
+	CC1101_SendCounter(&cc1101, tx_counter++);
+	HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin); // Sende-Tick
+	HAL_Delay(200); // alle 200 ms ein kurzes Packet
   }
   /* USER CODE END 3 */
 }
