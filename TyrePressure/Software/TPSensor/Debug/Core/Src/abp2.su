@@ -1,5 +1,0 @@
-../Core/Src/abp2.c:5:19:ABP2_Init	24	static
-../Core/Src/abp2.c:18:19:ABP2_RequestAndRead	48	static
-../Core/Src/abp2.c:36:6:ABP2_Parse	24	static
-../Core/Src/abp2.c:48:6:ABP2_Convert	32	static
-../Core/Src/abp2.c:58:19:ABP2_ReadAll	48	static
