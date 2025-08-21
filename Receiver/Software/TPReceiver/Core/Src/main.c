@@ -45,19 +45,15 @@ SPI_HandleTypeDef hspi1;
 
 /* USER CODE BEGIN PV */
 
-cc1101_t cc;
+cc1101_t cc1101;
 
-/* RX-Debug/Watch-Variablen */
-volatile uint8_t  rx_len = 0;
-volatile uint8_t  rx_payload[64];
-volatile uint8_t  rx_counter = 0;     // <- hier landet der gesendete Counter
-volatile int8_t   rx_rssi_dbm = 0;
-volatile uint8_t  rx_lqi = 0;
-volatile uint8_t  rx_crc_ok = 0;
+//Debug variables
+uint8_t status_part = 0;
+uint8_t status_ver = 0;
 
-/* Zusatz-Status zur Diagnose */
-volatile uint8_t  dbg_marcstate = 0;
-volatile uint8_t  dbg_rxbytes   = 0;
+
+uint8_t  reg_iocfg[3] = {0};
+uint8_t  reg_all[46] = {0};
 
 /* USER CODE END PV */
 
@@ -107,13 +103,13 @@ int main(void)
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
-  // CS einmalig auf High (idle). Dein Pin heißt „SPI1_CS“ in der .ioc:
+  // Pull CS high before starting communication
   HAL_GPIO_WritePin(SPI1_CS_GPIO_Port, SPI1_CS_Pin, GPIO_PIN_SET);
 
-  // CC1101 starten + RX-Konfig setzen + in RX gehen
-  CC1101_Init(&cc, &hspi1, SPI1_CS_GPIO_Port, SPI1_CS_Pin);
-  CC1101_Apply433_38k4(&cc);
-  CC1101_EnterRx(&cc);
+  // CC1101 Init and configuration
+  CC1101_Init(&cc1101, &hspi1, SPI1_CS_GPIO_Port, SPI1_CS_Pin);
+  //CC1101_Apply433_38k4(&cc);
+  //CC1101_EnterRx(&cc);
 
   /* USER CODE END 2 */
 
@@ -125,27 +121,12 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	HAL_StatusTypeDef st = CC1101_TryReadPacket(
-		&cc,
-		(uint8_t*)rx_payload,                // cast weg vom volatile
-		(uint8_t*)&rx_len,
-		sizeof(rx_payload),
-		(int8_t*)&rx_rssi_dbm,
-		(uint8_t*)&rx_lqi,
-		(uint8_t*)&rx_crc_ok
-	);
+	CC1101_read_status(&cc1101, CC1101_PARTNUM, &status_part);
+	CC1101_read_status(&cc1101, CC1101_VERSION, &status_ver);
 
-	if (st == HAL_OK && rx_crc_ok && rx_len >= 2 && rx_payload[0] == 0x01) {
-		rx_counter = rx_payload[1];          // Counter vom TPSensor
-		// optional: hier LED tickern oder Logik ergänzen
-	}
 
-	// ein paar Statuswerte zum Debuggen
-	dbg_marcstate = CC1101_ReadStatus(&cc, CC1101_MARCSTATE);  // RX=0x0D, IDLE=0x01, TX=0x13
-	dbg_rxbytes   = CC1101_ReadStatus(&cc, CC1101_RXBYTES) & 0x7F;
-
-	HAL_Delay(5); // sanftes Polling
 	HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
+	HAL_Delay(200);
 
   }
   /* USER CODE END 3 */
@@ -295,23 +276,6 @@ void Error_Handler(void)
   __disable_irq();
   while (1)
   {
-
-	HAL_StatusTypeDef st = CC1101_TryReadPacket(&cc,
-						  (uint8_t*)rx_payload, (uint8_t*)&rx_len, sizeof(rx_payload),
-						  (int8_t*)&rx_rssi_dbm, (uint8_t*)&rx_lqi, (uint8_t*)&rx_crc_ok);
-
-	if (st == HAL_OK && rx_crc_ok && rx_len >= 2 && rx_payload[0] == 0x01) {
-		rx_counter = rx_payload[1];   // <- vom TPSensor gesendeter Counter
-		// hier kannst du optional eine LED toggeln
-		// HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-	}
-
-	// Debug-Status zyklisch lesen
-	dbg_marcstate = CC1101_ReadStatus(&cc, CC1101_MARCSTATE);
-	dbg_rxbytes   = CC1101_ReadStatus(&cc, CC1101_RXBYTES) & 0x7F;
-
-	HAL_Delay(5); // sanft pollend
-
   }
   /* USER CODE END Error_Handler_Debug */
 }

@@ -1,0 +1,4 @@
+ 1.		.ioc -> Project Manager -> Code Generator -> Add necessary library files as reference
+ 2.		Window -> Preferences -> STM32Cube -> Firmware Update -> Repository Setup: C:\ST\Repository
+ 3.		Project -> Properties -> C/C++ General -> Path and Symbols -> 
+

@@ -44,10 +44,8 @@ extern "C" {
 #define CC1101_TEST1     0x2D
 #define CC1101_TEST0     0x2E
 #define CC1101_PATABLE   0x3E
-#define CC1101_RXFIFO    0x3F
+#define CC1101_FIFO      0x3F
 
-// SPI Flags
-#define CC1101_READ_BURST  0xC0
 
 // --------- Status-Register ---------
 #define CC1101_PARTNUM   0x30
@@ -58,16 +56,60 @@ extern "C" {
 #define CC1101_RSSI      0x34
 #define CC1101_PKTSTATUS 0x38
 
+#define CC1101_MISO_GPIO_Port  SPI1_CS_GPIO_Port
+
+#define CC1101_MISO_Pin        SPI1_CS_Pin
+
+#define CC1101_SPI_TIMEOUT	50
+
+
+typedef enum {
+    CC1101_ACCESS_WRITE = 			0x00, // 00
+    CC1101_ACCESS_WRITE_BURST = 	0x40, // 01
+    CC1101_ACCESS_READ =			0x80, // 10
+    CC1101_ACCESS_READ_BURST = 		0xC0  // 11
+} cc1101_access_mode;
+
+typedef enum {
+    CC1101_STATE_IDLE = 			0x00, // 000
+    CC1101_STATE_RX  = 				0x10, // 001
+    CC1101_STATE_TX  =				0x20, // 010
+    CC1101_STATE_FSTXON   = 		0x30, // 011
+    CC1101_STATE_CALIBRATE  = 		0x40, // 100
+    CC1101_STATE_SETTLING   = 		0x50, // 101
+    CC1101_STATE_RXOVERFLOW   = 	0x60, // 110
+    CC1101_STATETXOVERFLOW   = 		0x70  // 111
+} cc1101_state;
+
+
 typedef struct {
     SPI_HandleTypeDef *hspi;
     GPIO_TypeDef *cs_port;
     uint16_t cs_pin;
 } cc1101_t;
 
-// ---- API ----
-void CC1101_Init(cc1101_t *dev,
-                 SPI_HandleTypeDef *hspi,
-                 GPIO_TypeDef *cs_port, uint16_t cs_pin);
+typedef struct {
+	uint8_t chip_rdy;
+	cc1101_state state;
+	uint8_t fifo_bytes;
+}c1101_status_word;
+
+
+// ---------- API --------------
+void CC1101_Init(cc1101_t *dev, SPI_HandleTypeDef *hspi, GPIO_TypeDef *cs_port, uint16_t cs_pin);
+
+void CC1101_write_register(cc1101_t *dev, uint8_t addr, uint8_t val);
+void CC1101_write_register_burst(cc1101_t *dev, uint8_t start_addr, uint8_t *buf, uint8_t len);
+void CC1101_read_register(cc1101_t *dev, uint8_t addr, uint8_t *val);
+void CC1101_read_register_burst(cc1101_t *dev, uint8_t start_addr, uint8_t *arr_val, uint8_t len);
+
+void CC1101_write_strobe(cc1101_t *dev, uint8_t cmd);
+void CC1101_read_strobe(cc1101_t *dev, uint8_t addr, uint8_t *val);
+
+void CC1101_read_status(cc1101_t *dev, uint8_t addr, uint8_t *val);
+
+void CC1101_write_TX_FIFO(cc1101_t *dev, uint8_t *buf, uint8_t len);
+void CC1101_read_RX_FIFO(cc1101_t *dev, uint8_t *arr_val, uint8_t len);
 
 // 433,92 MHz, 2-FSK ~38.4 kbps, variable Länge, CRC an, Autocal
 void CC1101_Apply433_38k4(cc1101_t *dev);
@@ -75,21 +117,6 @@ void CC1101_Apply433_38k4(cc1101_t *dev);
 // In RX gehen (FIFO flush + SRX)
 void CC1101_EnterRx(cc1101_t *dev);
 
-// Statusregister lesen (ein Byte)
-uint8_t CC1101_ReadStatus(cc1101_t *dev, uint8_t status_addr);
-
-// Versucht einmal, ein komplettes Packet aus dem RX-FIFO zu lesen
-// Gibt HAL_OK bei Erfolg (payload/len/RSSI/LQI/CRC_OK gefüllt), HAL_BUSY wenn keins da.
-HAL_StatusTypeDef CC1101_TryReadPacket(cc1101_t *dev,
-                                       uint8_t *payload, uint8_t *len, uint8_t maxlen,
-                                       int8_t *rssi_dbm, uint8_t *lqi, uint8_t *crc_ok);
-
-typedef enum {
-    CC1101_ACCESS_WRITE = 0x00, // 00
-    CC1101_ACCESS_WRITE_BURST  = 0x40, // 01
-    CC1101_ACCESS_READ  = 0x80, // 10
-    CC1101_ACCESS_READ_BURST   = 0xC0  // 11
-} cc1101_access_mode;
 
 #ifdef __cplusplus
 }
