@@ -14,11 +14,15 @@ extern "C" {
 #define CC1101_SRX       0x34
 #define CC1101_SIDLE     0x36
 #define CC1101_SFRX      0x3A
+#define CC1101_SNOP      0x3D
 
 // --------- CC1101 Register (Auszug, RX nötig) ---------
 #define CC1101_IOCFG2    0x00
+#define CC1101_IOCFG1    0x01
 #define CC1101_IOCFG0    0x02
 #define CC1101_FIFOTHR   0x03
+#define CC1101_SYNC1     0x04
+#define CC1101_SYNC0     0x05
 #define CC1101_PKTLEN    0x06
 #define CC1101_PKTCTRL1  0x07
 #define CC1101_PKTCTRL0  0x08

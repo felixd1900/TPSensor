@@ -36,6 +36,7 @@ static c1101_status_word convert_status(uint8_t status_byte)
 //===================================Register==========================================
 void CC1101_write_register(cc1101_t *dev, uint8_t addr, uint8_t val)
 {
+	//works
 	uint8_t header = create_header(addr, CC1101_ACCESS_WRITE);
     uint8_t tx[2] = { header, val };
 
@@ -47,6 +48,7 @@ void CC1101_write_register(cc1101_t *dev, uint8_t addr, uint8_t val)
 
 void CC1101_write_register_burst(cc1101_t *dev, uint8_t start_addr, uint8_t *buf, uint8_t len)
 {
+	//works
 	uint8_t header = create_header(start_addr, CC1101_ACCESS_WRITE_BURST);
 
 	cs_low_wait_ready(dev);
@@ -58,6 +60,7 @@ void CC1101_write_register_burst(cc1101_t *dev, uint8_t start_addr, uint8_t *buf
 
 void CC1101_read_register(cc1101_t *dev, uint8_t addr, uint8_t *val)
 {
+	//works byte 0 is status byte
 	uint8_t tx[2] = { create_header(addr, CC1101_ACCESS_READ), 0x00}; // Add dummy byte
 	uint8_t rx[2] = {0,0};
 
@@ -70,6 +73,7 @@ void CC1101_read_register(cc1101_t *dev, uint8_t addr, uint8_t *val)
 
 void CC1101_read_register_burst(cc1101_t *dev, uint8_t start_addr, uint8_t *arr_val, uint8_t len)
 {
+	//works
 	uint8_t header = create_header(start_addr, CC1101_ACCESS_READ_BURST);
 
 	cs_low_wait_ready(dev);
@@ -88,29 +92,36 @@ void CC1101_write_strobe(cc1101_t *dev, uint8_t cmd)
     cs_low_wait_ready(dev);
     HAL_Delay(1);
     HAL_SPI_Transmit(dev->hspi, &tx, 1, 50);
-    //status byte can be received here
     cs_high(dev);
 }
 
 void CC1101_read_strobe(cc1101_t *dev, uint8_t addr, uint8_t *val)
 {
-	uint8_t tx = create_header(addr, CC1101_ACCESS_READ); // Can only be read using single read, burst would read status register
+	uint8_t tx[2] = { create_header(addr, CC1101_ACCESS_READ), 0x00}; // Add dummy byte
+	//uint8_t header = create_header(addr, CC1101_ACCESS_READ);
+	uint8_t rx[2] = {0,0};
 
 	cs_low_wait_ready(dev);
     HAL_Delay(1);
-    HAL_SPI_TransmitReceive(dev->hspi, &tx, val, 1, 50);
+    //HAL_SPI_Transmit(dev->hspi, &header, 1, 50);
+    //HAL_SPI_Receive(dev->hspi, rx, 2, 50);
+    HAL_SPI_TransmitReceive(dev->hspi, tx, rx, 2, 50);
     cs_high(dev);
+    *val = rx[1];
 }
 
 //=====================================Status===========================================
 void CC1101_read_status(cc1101_t *dev, uint8_t addr, uint8_t *val)
 {
-	uint8_t tx = create_header(addr, CC1101_ACCESS_READ_BURST); // Only one byte (Burst is required but executed as single read)
+	//works byte 0 is status byte
+	uint8_t tx[2] = { create_header(addr, CC1101_ACCESS_READ_BURST), 0x00}; // Add dummy byte
+	uint8_t rx[2] = {0,0};
 
 	cs_low_wait_ready(dev);
     HAL_Delay(1);
-    HAL_SPI_TransmitReceive(dev->hspi, &tx, val, 1, 50);
+    HAL_SPI_TransmitReceive(dev->hspi, tx, rx, 2, 50);
     cs_high(dev);
+    *val = rx[1];
 }
 
 

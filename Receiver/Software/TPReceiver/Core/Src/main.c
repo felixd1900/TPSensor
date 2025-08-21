@@ -50,10 +50,19 @@ cc1101_t cc1101;
 //Debug variables
 uint8_t status_part = 0;
 uint8_t status_ver = 0;
+uint8_t reg_test1 = 0;
+uint8_t reg_test2 = 0;
+uint8_t reg_test3 = 0;
+uint8_t state_before = 0;
+uint8_t state_after = 0;
+uint8_t state_loop = 0;
 
 
 uint8_t  reg_iocfg[3] = {0};
-uint8_t  reg_all[46] = {0};
+uint8_t  reg_all_before[46] = {0};
+uint8_t  reg_all_after[46] = {0};
+
+uint8_t freq_433[3] = { 0x10, 0xB0, 0x71 };
 
 /* USER CODE END PV */
 
@@ -108,8 +117,23 @@ int main(void)
 
   // CC1101 Init and configuration
   CC1101_Init(&cc1101, &hspi1, SPI1_CS_GPIO_Port, SPI1_CS_Pin);
+
+  CC1101_read_status(&cc1101, CC1101_PARTNUM, &status_part);
+  CC1101_read_status(&cc1101, CC1101_VERSION, &status_ver);
+
+  CC1101_read_register_burst(&cc1101, CC1101_IOCFG2, reg_all_before, 46);
+  CC1101_write_register(&cc1101, CC1101_PKTLEN, 0x02);
+  CC1101_write_register_burst(&cc1101, CC1101_FREQ2, freq_433, 3);
+  CC1101_read_register_burst(&cc1101, CC1101_IOCFG2, reg_all_after, 46);
+
+  CC1101_read_register(&cc1101, CC1101_IOCFG1, &reg_test1);
+
   //CC1101_Apply433_38k4(&cc);
+  CC1101_Apply433_38k4(&cc1101);
   //CC1101_EnterRx(&cc);
+  CC1101_read_strobe(&cc1101, CC1101_SNOP, &state_before);
+  CC1101_EnterRx(&cc1101);
+  CC1101_read_strobe(&cc1101, CC1101_SNOP, &state_after);
 
   /* USER CODE END 2 */
 
@@ -121,10 +145,8 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	CC1101_read_status(&cc1101, CC1101_PARTNUM, &status_part);
-	CC1101_read_status(&cc1101, CC1101_VERSION, &status_ver);
 
-
+	CC1101_read_strobe(&cc1101, CC1101_SNOP, &state_loop);
 	HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
 	HAL_Delay(200);
 
