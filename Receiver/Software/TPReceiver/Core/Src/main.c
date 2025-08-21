@@ -124,6 +124,29 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
+	HAL_StatusTypeDef st = CC1101_TryReadPacket(
+		&cc,
+		(uint8_t*)rx_payload,                // cast weg vom volatile
+		(uint8_t*)&rx_len,
+		sizeof(rx_payload),
+		(int8_t*)&rx_rssi_dbm,
+		(uint8_t*)&rx_lqi,
+		(uint8_t*)&rx_crc_ok
+	);
+
+	if (st == HAL_OK && rx_crc_ok && rx_len >= 2 && rx_payload[0] == 0x01) {
+		rx_counter = rx_payload[1];          // Counter vom TPSensor
+		// optional: hier LED tickern oder Logik ergänzen
+	}
+
+	// ein paar Statuswerte zum Debuggen
+	dbg_marcstate = CC1101_ReadStatus(&cc, CC1101_MARCSTATE);  // RX=0x0D, IDLE=0x01, TX=0x13
+	dbg_rxbytes   = CC1101_ReadStatus(&cc, CC1101_RXBYTES) & 0x7F;
+
+	HAL_Delay(5); // sanftes Polling
+	HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
+
   }
   /* USER CODE END 3 */
 }
@@ -230,9 +253,13 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(SPI1_CS_GPIO_Port, SPI1_CS_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(Debug_LED_GPIO_Port, Debug_LED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : SPI1_CS_Pin */
   GPIO_InitStruct.Pin = SPI1_CS_Pin;
@@ -240,6 +267,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(SPI1_CS_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : Debug_LED_Pin */
+  GPIO_InitStruct.Pin = Debug_LED_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(Debug_LED_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 

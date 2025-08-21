@@ -1,0 +1,12 @@
+../Core/Src/cc1101.c:4:20:cs_high	16	static
+../Core/Src/cc1101.c:7:20:cs_low_wait_ready	24	static,ignoring_inline_asm
+../Core/Src/cc1101.c:17:6:CC1101_Init	48	static
+../Core/Src/cc1101.c:41:9:CC1101_ReadConfig_Single	32	static,ignoring_inline_asm
+../Core/Src/cc1101.c:53:19:CC1101_ReadConfig_Burst	40	static
+../Core/Src/cc1101.c:64:19:CC1101_WriteConfig_Single	40	static
+../Core/Src/cc1101.c:73:19:CC1101_WriteConfig_Burst	40	static
+../Core/Src/cc1101.c:85:9:CC1101_ReadStatus	32	static,ignoring_inline_asm
+../Core/Src/cc1101.c:97:19:CC1101_ReadPartVersion	24	static
+../Core/Src/cc1101.c:106:6:CC1101_Apply433_38k4	32	static
+../Core/Src/cc1101.c:155:19:CC1101_SendPacket	40	static
+../Core/Src/cc1101.c:181:19:CC1101_SendCounter	24	static

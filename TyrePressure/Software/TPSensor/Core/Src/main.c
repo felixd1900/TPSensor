@@ -59,7 +59,18 @@ volatile uint8_t  abp2_status        = 0;
 volatile uint32_t abp2_press_counts  = 0;
 volatile uint32_t abp2_temp_counts   = 0;
 
+
+cc1101_t cc1101;
+
+volatile uint8_t iocfg1_single = 0xFF;
+volatile uint8_t iocfg_block[3] = {0}; // IOCFG2..0
+volatile uint8_t sync_block[2]  = {0}; // SYNC1..0
+
 volatile uint8_t tx_counter = 0;
+volatile uint8_t tx_marc_before = 0, tx_marc_after = 0;
+volatile uint8_t txbytes_before = 0, txbytes_after = 0;
+
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -119,12 +130,23 @@ int main(void)
     HAL_GPIO_WritePin(Debug_LED_GPIO_Port, Debug_LED_Pin, GPIO_PIN_RESET);
   }
 
-  // Nur Initial-High auf deinem bereits im .ioc gesetzten CS:
+  // SPI1: Mode0, 8-Bit, MSB, NSS=SOFT; Prescaler zum Test ruhig moderat (z. B. /16 ≈ 1–2 MHz)
+  // CS idle high
   HAL_GPIO_WritePin(SPI1_CS_GPIO_Port, SPI1_CS_Pin, GPIO_PIN_SET);
 
-  // CC1101 starten und auf 433,92 MHz konfigurieren
+  // CC1101 binden + resetten
   CC1101_Init(&cc1101, &hspi1, SPI1_CS_GPIO_Port, SPI1_CS_Pin);
+
+  // Golden Checks direkt nach Reset (du hast sie schon einmal geprüft):
+  iocfg1_single = CC1101_ReadConfig_Single(&cc1101, CC1101_IOCFG1);
+  CC1101_ReadConfig_Burst(&cc1101, CC1101_IOCFG2, (uint8_t*)iocfg_block, 3);
+  CC1101_ReadConfig_Burst(&cc1101, CC1101_SYNC1, (uint8_t*)sync_block, 2);
+
+  // Funk-Setup
   CC1101_Apply433_38k4(&cc1101);
+
+
+
 
   /* USER CODE END 2 */
 
@@ -145,13 +167,23 @@ int main(void)
       HAL_Delay(60);
       HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
     }
-    HAL_Delay(200); */
+    HAL_Delay(200);*/
 
+	// optional: vor dem Senden Status abfragen
+	  tx_marc_before = CC1101_ReadStatus(&cc1101, CC1101_MARCSTATE) & 0x1F; // nur Bits 4..0
+	  txbytes_before = CC1101_ReadStatus(&cc1101, CC1101_TXBYTES)   & 0x7F; // nur Bits 6..0
 
-	CC1101_SendCounter(&cc1101, tx_counter++);
-	HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin); // Sende-Tick
-	HAL_Delay(200); // alle 200 ms ein kurzes Packet
+	(void)CC1101_SendCounter(&cc1101, tx_counter++);
+
+	// optional: nach dem Senden Status abfragen
+	tx_marc_after  = CC1101_ReadStatus(&cc1101, CC1101_MARCSTATE) & 0x1F;
+	txbytes_after  = CC1101_ReadStatus(&cc1101, CC1101_TXBYTES)   & 0x7F;
+
+	HAL_Delay(200);
+
   }
+
+
   /* USER CODE END 3 */
 }
 
@@ -360,7 +392,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = SPI1_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(SPI1_CS_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : Debug_LED_Pin */

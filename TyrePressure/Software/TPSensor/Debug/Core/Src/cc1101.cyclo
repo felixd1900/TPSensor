@@ -1,0 +1,12 @@
+../Core/Src/cc1101.c:4:20:cs_high	1
+../Core/Src/cc1101.c:7:20:cs_low_wait_ready	3
+../Core/Src/cc1101.c:17:6:CC1101_Init	1
+../Core/Src/cc1101.c:41:9:CC1101_ReadConfig_Single	1
+../Core/Src/cc1101.c:53:19:CC1101_ReadConfig_Burst	4
+../Core/Src/cc1101.c:64:19:CC1101_WriteConfig_Single	1
+../Core/Src/cc1101.c:73:19:CC1101_WriteConfig_Burst	4
+../Core/Src/cc1101.c:85:9:CC1101_ReadStatus	1
+../Core/Src/cc1101.c:97:19:CC1101_ReadPartVersion	3
+../Core/Src/cc1101.c:106:6:CC1101_Apply433_38k4	1
+../Core/Src/cc1101.c:155:19:CC1101_SendPacket	7
+../Core/Src/cc1101.c:181:19:CC1101_SendCounter	1
