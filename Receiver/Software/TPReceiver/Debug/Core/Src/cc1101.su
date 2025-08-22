@@ -7,10 +7,10 @@
 ../Core/Src/cc1101.c:61:6:CC1101_read_register	48	static
 ../Core/Src/cc1101.c:74:6:CC1101_read_register_burst	40	static
 ../Core/Src/cc1101.c:88:6:CC1101_write_strobe	32	static
-../Core/Src/cc1101.c:98:6:CC1101_read_strobe	48	static
-../Core/Src/cc1101.c:114:6:CC1101_read_status	48	static
-../Core/Src/cc1101.c:130:6:CC1101_write_TX_FIFO	40	static
-../Core/Src/cc1101.c:141:6:CC1101_read_RX_FIFO	40	static
-../Core/Src/cc1101.c:155:6:CC1101_Init	24	static
-../Core/Src/cc1101.c:180:6:CC1101_Apply433_38k4	24	static
-../Core/Src/cc1101.c:227:6:CC1101_EnterRx	16	static
+../Core/Src/cc1101.c:99:6:CC1101_read_strobe	48	static
+../Core/Src/cc1101.c:113:6:CC1101_read_status	48	static
+../Core/Src/cc1101.c:129:6:CC1101_write_TX_FIFO	40	static
+../Core/Src/cc1101.c:140:6:CC1101_read_RX_FIFO	40	static
+../Core/Src/cc1101.c:154:6:CC1101_Init	24	static
+../Core/Src/cc1101.c:179:6:CC1101_Apply433_38k4	24	static
+../Core/Src/cc1101.c:226:6:CC1101_EnterRx	16	static

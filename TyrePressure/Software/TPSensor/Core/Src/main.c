@@ -55,7 +55,7 @@ cc1101_t cc1101;
 volatile float    abp2_pressure      = 0.0f;
 volatile float    abp2_temperature_c = 0.0f;
 volatile float    abp2_percentage    = 0.0f;
-volatile uint8_t  abp2_status        = 0;
+volatile uint8_t  abp2_stat          = 0;
 volatile uint32_t abp2_press_counts  = 0;
 volatile uint32_t abp2_temp_counts   = 0;
 
@@ -122,7 +122,7 @@ int main(void)
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
   // ABP2 initialisieren (Adresse 0x28, Range 0..1)
-  if (ABP2_Init(&abp2, &hi2c1, 0x28, 0.0f, 1.0f) != HAL_OK) {
+  if (ABP2_Init(&abp2, &hi2c1, 0x28) != HAL_OK) {
     for (int i = 0; i < 6; ++i) { HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin); HAL_Delay(100); }
   } else {
     HAL_GPIO_WritePin(Debug_LED_GPIO_Port, Debug_LED_Pin, GPIO_PIN_SET);

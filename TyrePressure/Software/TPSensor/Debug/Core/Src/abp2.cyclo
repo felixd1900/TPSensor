@@ -1,5 +1,7 @@
-../Core/Src/abp2.c:5:19:ABP2_Init	3
-../Core/Src/abp2.c:18:19:ABP2_RequestAndRead	4
-../Core/Src/abp2.c:36:6:ABP2_Parse	4
-../Core/Src/abp2.c:48:6:ABP2_Convert	4
-../Core/Src/abp2.c:58:19:ABP2_ReadAll	4
+../Core/Src/abp2.c:5:13:read_data	1
+../Core/Src/abp2.c:14:16:parse_status	1
+../Core/Src/abp2.c:24:17:parse_pressure	1
+../Core/Src/abp2.c:36:17:parse_temp	1
+../Core/Src/abp2.c:49:19:ABP2_Init	3
+../Core/Src/abp2.c:58:13:ABP2_ReadPressure	1
+../Core/Src/abp2.c:69:13:ABP2_ReadAll	1

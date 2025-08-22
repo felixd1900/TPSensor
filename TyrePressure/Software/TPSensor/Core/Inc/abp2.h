@@ -4,47 +4,41 @@
 #pragma once
 #include "main.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// 24-bit Vollskala
+// 24-bit scale for pressure
 #define ABP2_FULL_SCALE   (16777215.0f)   // 2^24 - 1
-#define ABP2_OUT_MAX      (15099494.0f)   // ~90% von FULL_SCALE
-#define ABP2_OUT_MIN      (1677722.0f)    // ~10% von FULL_SCALE
-#define ABP2_RX_LEN       7               // 7 Bytes wie im Arduino-Beispiel
+#define ABP2_PRESS_MAX    (15099494.0f)   // 90% of FULL_SCALE (used to scale during conversion)
+#define ABP2_PRESS_MIN    (1677722.0f)    // 10% of FULL_SCALE (used to scale during conversion)
+#define ABP2_TEMP_MAX	  (150.0f)		  // Max temperature in °C used for scaling
+#define ABP2_TEMP_MIN	  (-50.0f)		  // Min temperature in °C used for scaling
+
+#define ABP2_TP_MAX		  (1.0f)		  //Tyre Pressure max range (used to scale during conversion)
+#define ABP2_TP_MIN		  (0.0f)		  //Tyre Pressure min range (used to scale during conversion)
 
 typedef struct {
     I2C_HandleTypeDef *hi2c;
     uint16_t addr8;     // 8-Bit I2C-Adresse (7-bit << 1) — z. B. 0x28 << 1
-    float pmin;         // z. B. 0.0f
-    float pmax;         // z. B. 1.0f (bar/kPa/psi – Einheit ist egal, nur Range)
+    					// use uint16_t because required for I2C functions
 } abp2_t;
 
-/** Initialisiert das Device-Objekt und pingt die Adresse einmal an.
- *  addr7 = 7-Bit-Adresse (z. B. 0x28)
- */
-HAL_StatusTypeDef ABP2_Init(abp2_t *dev, I2C_HandleTypeDef *hi2c,
-                            uint8_t addr7, float pmin, float pmax);
+typedef struct {
+	bool saturated;
+	bool memory_error;
+	bool busy;
+	bool power;
+}abp2_status;
 
-/** Sendet {0xAA,0x00,0x00}, wartet delay_ms und liest 7 Bytes. */
-HAL_StatusTypeDef ABP2_RequestAndRead(const abp2_t *dev,
-                                      uint8_t data[ABP2_RX_LEN],
-                                      uint32_t delay_ms);
 
-/** Zerlegt die 7 Bytes in Status, 24-bit Druck-/Temperaturzähler. */
-void ABP2_Parse(const uint8_t raw[ABP2_RX_LEN], uint8_t *status,
-                uint32_t *press_counts, uint32_t *temp_counts);
+HAL_StatusTypeDef ABP2_Init(abp2_t *dev, I2C_HandleTypeDef *hi2c, uint8_t addr7);
 
-/** Rechnet Zähler in physikalische Werte um (Druck/°C/%FS). */
-void ABP2_Convert(const abp2_t *dev, uint32_t press_counts, uint32_t temp_counts,
-                  float *pressure, float *temperature_c, float *percentage);
+abp2_status ABP2_ReadPressure(abp2_t *dev, float *pressure);
+abp2_status ABP2_ReadAll(abp2_t *dev, float *pressure, float *temperature);
 
-/** Komfortfunktion: Request+Read+Parse+Convert in einem Schritt. */
-HAL_StatusTypeDef ABP2_ReadAll(const abp2_t *dev,
-                               float *pressure, float *temperature_c, float *percentage,
-                               uint8_t *status, uint32_t *press_counts, uint32_t *temp_counts);
 
 #ifdef __cplusplus
 }

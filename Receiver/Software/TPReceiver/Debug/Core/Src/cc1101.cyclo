@@ -7,10 +7,10 @@
 ../Core/Src/cc1101.c:61:6:CC1101_read_register	1
 ../Core/Src/cc1101.c:74:6:CC1101_read_register_burst	1
 ../Core/Src/cc1101.c:88:6:CC1101_write_strobe	1
-../Core/Src/cc1101.c:98:6:CC1101_read_strobe	1
-../Core/Src/cc1101.c:114:6:CC1101_read_status	1
-../Core/Src/cc1101.c:130:6:CC1101_write_TX_FIFO	1
-../Core/Src/cc1101.c:141:6:CC1101_read_RX_FIFO	1
-../Core/Src/cc1101.c:155:6:CC1101_Init	1
-../Core/Src/cc1101.c:180:6:CC1101_Apply433_38k4	1
-../Core/Src/cc1101.c:227:6:CC1101_EnterRx	1
+../Core/Src/cc1101.c:99:6:CC1101_read_strobe	1
+../Core/Src/cc1101.c:113:6:CC1101_read_status	1
+../Core/Src/cc1101.c:129:6:CC1101_write_TX_FIFO	1
+../Core/Src/cc1101.c:140:6:CC1101_read_RX_FIFO	1
+../Core/Src/cc1101.c:154:6:CC1101_Init	1
+../Core/Src/cc1101.c:179:6:CC1101_Apply433_38k4	1
+../Core/Src/cc1101.c:226:6:CC1101_EnterRx	1

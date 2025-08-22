@@ -1,5 +1,7 @@
-../Core/Src/abp2.c:5:19:ABP2_Init	24	static
-../Core/Src/abp2.c:18:19:ABP2_RequestAndRead	48	static
-../Core/Src/abp2.c:36:6:ABP2_Parse	24	static
-../Core/Src/abp2.c:48:6:ABP2_Convert	32	static
-../Core/Src/abp2.c:58:19:ABP2_ReadAll	48	static
+../Core/Src/abp2.c:5:13:read_data	40	static
+../Core/Src/abp2.c:14:16:parse_status	24	static
+../Core/Src/abp2.c:24:17:parse_pressure	40	static
+../Core/Src/abp2.c:36:17:parse_temp	24	static
+../Core/Src/abp2.c:49:19:ABP2_Init	24	static
+../Core/Src/abp2.c:58:13:ABP2_ReadPressure	40	static
+../Core/Src/abp2.c:69:13:ABP2_ReadAll	48	static

@@ -87,6 +87,7 @@ void CC1101_read_register_burst(cc1101_t *dev, uint8_t start_addr, uint8_t *arr_
 //====================================Strobes==========================================
 void CC1101_write_strobe(cc1101_t *dev, uint8_t cmd)
 {
+	//works
 	uint8_t tx = create_header(cmd, CC1101_ACCESS_WRITE);
 
     cs_low_wait_ready(dev);
@@ -97,14 +98,12 @@ void CC1101_write_strobe(cc1101_t *dev, uint8_t cmd)
 
 void CC1101_read_strobe(cc1101_t *dev, uint8_t addr, uint8_t *val)
 {
+	//works byte 0 is status byte
 	uint8_t tx[2] = { create_header(addr, CC1101_ACCESS_READ), 0x00}; // Add dummy byte
-	//uint8_t header = create_header(addr, CC1101_ACCESS_READ);
 	uint8_t rx[2] = {0,0};
 
 	cs_low_wait_ready(dev);
     HAL_Delay(1);
-    //HAL_SPI_Transmit(dev->hspi, &header, 1, 50);
-    //HAL_SPI_Receive(dev->hspi, rx, 2, 50);
     HAL_SPI_TransmitReceive(dev->hspi, tx, rx, 2, 50);
     cs_high(dev);
     *val = rx[1];
@@ -180,11 +179,11 @@ void CC1101_Init(cc1101_t *dev,
 void CC1101_Apply433_38k4(cc1101_t *dev)
 {
 	CC1101_write_strobe(dev, CC1101_SIDLE);
-	CC1101_write_strobe(dev, CC1101_SFRX); // RX FIFO leeren
+	CC1101_write_strobe(dev, CC1101_SFRX); 				// RX FIFO leeren
 
-    // sinnvolle Defaults (RX)
-    CC1101_write_register(dev, CC1101_IOCFG2,   0x0B); // optional: CCA auf GDO2
-    CC1101_write_register(dev, CC1101_IOCFG0,   0x06); // CRC_OK/SYNC auf GDO0 (nur falls genutzt)
+
+    CC1101_write_register(dev, CC1101_IOCFG2,   0x0B); 	// optional: use as CHP_RDYn state
+    CC1101_write_register(dev, CC1101_IOCFG0,   0x06); 	// CRC_OK/SYNC auf GDO0 (nur falls genutzt)
 
     CC1101_write_register(dev, CC1101_FIFOTHR,  0x07);
     CC1101_write_register(dev, CC1101_PKTLEN,   61);    // max Payload
@@ -203,11 +202,11 @@ void CC1101_Apply433_38k4(cc1101_t *dev)
     // 2-FSK ~38.4 kbps
     CC1101_write_register(dev, CC1101_MDMCFG4,  0xCA);
     CC1101_write_register(dev, CC1101_MDMCFG3,  0x83);
-    CC1101_write_register(dev, CC1101_MDMCFG2,  0x13);  // 2-FSK, 30/32 Sync
+    CC1101_write_register(dev, CC1101_MDMCFG2,  0x13); 	// 2-FSK, 30/32 Sync
     CC1101_write_register(dev, CC1101_MDMCFG1,  0x22);
     CC1101_write_register(dev, CC1101_MDMCFG0,  0xF8);
 
-    CC1101_write_register(dev, CC1101_DEVIATN,  0x35);  // ~47 kHz
+    CC1101_write_register(dev, CC1101_DEVIATN,  0x35); 	// ~47 kHz
     CC1101_write_register(dev, CC1101_MCSM0,    0x18);  // Autocal bei TX/RX
 
     CC1101_write_register(dev, CC1101_FREND0,   0x11);
