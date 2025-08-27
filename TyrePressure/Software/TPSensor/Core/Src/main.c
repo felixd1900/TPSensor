@@ -49,26 +49,33 @@ SPI_HandleTypeDef hspi1;
 USART_HandleTypeDef husart1;
 
 /* USER CODE BEGIN PV */
+//==============ABP2 Variables=============
 abp2_t abp2;
+
+float abp2_pressure = 0.0f;
+float abp2_temperature = 0.0f;
+abp2_status abp2status;
+uint8_t abp2status_raw = 0;
+
+
+//=============CC1101 Variables============
 cc1101_t cc1101;
 
-volatile float    abp2_pressure      = 0.0f;
-volatile float    abp2_temperature_c = 0.0f;
-volatile float    abp2_percentage    = 0.0f;
-volatile uint8_t  abp2_stat          = 0;
-volatile uint32_t abp2_press_counts  = 0;
-volatile uint32_t abp2_temp_counts   = 0;
+uint8_t status_part = 0;
+uint8_t status_ver = 0;
 
+uint8_t reg_all_before[46] = {0};
+uint8_t reg_all_after[46] = {0};
 
-cc1101_t cc1101;
+uint8_t tx_fifo[11] = {};
+uint8_t counter = 0;
 
-volatile uint8_t iocfg1_single = 0xFF;
-volatile uint8_t iocfg_block[3] = {0}; // IOCFG2..0
-volatile uint8_t sync_block[2]  = {0}; // SYNC1..0
+cc1101_marc_state marcstate = CC1101_MARC_SLEEP;
 
-volatile uint8_t tx_counter = 0;
-volatile uint8_t tx_marc_before = 0, tx_marc_after = 0;
-volatile uint8_t txbytes_before = 0, txbytes_after = 0;
+uint8_t freq_offset= 0xFF;
+
+uint32_t tx_timer = 0;
+uint8_t pa_table[8] = {0};
 
 
 /* USER CODE END PV */
@@ -80,6 +87,10 @@ static void MX_I2C1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_USART1_Init(void);
 /* USER CODE BEGIN PFP */
+
+static void CreateTx_Frame(uint8_t *frame, uint8_t counter, float pressure, float temperature, uint8_t status_raw);
+static void put_u32_be(uint8_t *p, uint32_t v);
+static void put_f32_be(uint8_t *p, float f);
 
 /* USER CODE END PFP */
 
@@ -121,31 +132,27 @@ int main(void)
   MX_USART1_Init();
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
+
+
   // ABP2 initialisieren (Adresse 0x28, Range 0..1)
-  if (ABP2_Init(&abp2, &hi2c1, 0x28) != HAL_OK) {
-    for (int i = 0; i < 6; ++i) { HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin); HAL_Delay(100); }
-  } else {
-    HAL_GPIO_WritePin(Debug_LED_GPIO_Port, Debug_LED_Pin, GPIO_PIN_SET);
-    HAL_Delay(300);
-    HAL_GPIO_WritePin(Debug_LED_GPIO_Port, Debug_LED_Pin, GPIO_PIN_RESET);
-  }
+  ABP2_Init(&abp2, &hi2c1, 0x28);
 
-  // SPI1: Mode0, 8-Bit, MSB, NSS=SOFT; Prescaler zum Test ruhig moderat (z. B. /16 ≈ 1–2 MHz)
-  // CS idle high
-  HAL_GPIO_WritePin(SPI1_CS_GPIO_Port, SPI1_CS_Pin, GPIO_PIN_SET);
 
-  // CC1101 binden + resetten
+
+  // CC1101 Init
   CC1101_Init(&cc1101, &hspi1, SPI1_CS_GPIO_Port, SPI1_CS_Pin);
 
-  // Golden Checks direkt nach Reset (du hast sie schon einmal geprüft):
-  iocfg1_single = CC1101_ReadConfig_Single(&cc1101, CC1101_IOCFG1);
-  CC1101_ReadConfig_Burst(&cc1101, CC1101_IOCFG2, (uint8_t*)iocfg_block, 3);
-  CC1101_ReadConfig_Burst(&cc1101, CC1101_SYNC1, (uint8_t*)sync_block, 2);
+  // CC1101 Debugging tests
+  CC1101_read_status(&cc1101, CC1101_STATUS_PARTNUM, &status_part);
+  CC1101_read_status(&cc1101, CC1101_STATUS_VERSION, &status_ver);
 
-  // Funk-Setup
+  // CC1101 Configuration
+  CC1101_read_register_burst(&cc1101, CC1101_REG_IOCFG2, reg_all_before, 46);
   CC1101_Apply433_38k4(&cc1101);
+  CC1101_read_register_burst(&cc1101, CC1101_REG_IOCFG2, reg_all_after, 46);
 
-
+  // CC1101 Prepare for tx
+  CC1101_PrepareTx(&cc1101);
 
 
   /* USER CODE END 2 */
@@ -157,29 +164,37 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    /*if (ABP2_ReadAll(&abp2,
-                     (float*)&abp2_pressure, (float*)&abp2_temperature_c, (float*)&abp2_percentage,
-                     (uint8_t*)&abp2_status, (uint32_t*)&abp2_press_counts, (uint32_t*)&abp2_temp_counts) == HAL_OK)
-    {
-      HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
-    } else {
-      HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
-      HAL_Delay(60);
-      HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
-    }
-    HAL_Delay(200);*/
 
-	// optional: vor dem Senden Status abfragen
-	  tx_marc_before = CC1101_ReadStatus(&cc1101, CC1101_MARCSTATE) & 0x1F; // nur Bits 4..0
-	  txbytes_before = CC1101_ReadStatus(&cc1101, CC1101_TXBYTES)   & 0x7F; // nur Bits 6..0
 
-	(void)CC1101_SendCounter(&cc1101, tx_counter++);
+	//APB2 Read
+	abp2status = ABP2_ReadAll(&abp2, &abp2_pressure, &abp2_temperature, &abp2status_raw);
+	CreateTx_Frame(tx_fifo, counter, abp2_pressure, abp2_temperature, abp2status_raw);
+	counter++;
 
-	// optional: nach dem Senden Status abfragen
-	tx_marc_after  = CC1101_ReadStatus(&cc1101, CC1101_MARCSTATE) & 0x1F;
-	txbytes_after  = CC1101_ReadStatus(&cc1101, CC1101_TXBYTES)   & 0x7F;
 
-	HAL_Delay(200);
+	//CC1101 Send with 10dB
+	CC1101_Set_Tx_power(&cc1101, CC1101_TX_10dB);
+	CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
+	CC1101_read_Patable(&cc1101, pa_table);
+	tx_timer = CC1101_SendTx(&cc1101);
+
+	HAL_Delay(1000);
+
+	//CC1101 Send with -30dB
+	CC1101_Set_Tx_power(&cc1101, CC1101_TX_M30dB);
+	CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
+	CC1101_read_Patable(&cc1101, pa_table);
+	tx_timer = CC1101_SendTx(&cc1101);
+
+
+	// Status read out
+	CC1101_read_marcstate(&cc1101, &marcstate);
+	CC1101_read_status(&cc1101, CC1101_STATUS_FREQEST, &freq_offset);
+
+
+	//Loop Indication & Delay
+	HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
+	HAL_Delay(1000);
 
   }
 
@@ -414,6 +429,32 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+static void CreateTx_Frame(uint8_t *frame, uint8_t counter, float pressure, float temperature, uint8_t status_raw)
+{
+    uint8_t i = 1;
+    frame[i++] = counter;                    		//add alive counter
+    frame[i++] = status_raw;                   		//add sensor status
+    put_f32_be(&frame[i], pressure);   i += 4;		//add pressure as uint32
+    put_f32_be(&frame[i], temperature);i += 4;		//add temperature as uint32
+    frame[0] = i-1;									//add frame length as first byte
+}
+
+static void put_u32_be(uint8_t *p, uint32_t v)
+{
+    p[0] = (uint8_t)(v >> 24);
+    p[1] = (uint8_t)(v >> 16);
+    p[2] = (uint8_t)(v >>  8);
+    p[3] = (uint8_t)(v >>  0);
+}
+
+static void put_f32_be(uint8_t *p, float f)
+{
+    uint32_t u;
+    memcpy(&u, &f, sizeof(u));  // float-Bits unverändert übernehmen
+    put_u32_be(p, u);           // in BE anordnen
+}
+
 /* USER CODE END 4 */
 
 /**

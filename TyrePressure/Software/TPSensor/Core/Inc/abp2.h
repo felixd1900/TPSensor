@@ -37,7 +37,7 @@ typedef struct {
 HAL_StatusTypeDef ABP2_Init(abp2_t *dev, I2C_HandleTypeDef *hi2c, uint8_t addr7);
 
 abp2_status ABP2_ReadPressure(abp2_t *dev, float *pressure);
-abp2_status ABP2_ReadAll(abp2_t *dev, float *pressure, float *temperature);
+abp2_status ABP2_ReadAll(abp2_t *dev, float *pressure, float *temperature, uint8_t *status_raw);
 
 
 #ifdef __cplusplus

@@ -50,19 +50,18 @@ cc1101_t cc1101;
 //Debug variables
 uint8_t status_part = 0;
 uint8_t status_ver = 0;
-uint8_t reg_test1 = 0;
-uint8_t reg_test2 = 0;
-uint8_t reg_test3 = 0;
-uint8_t state_before = 0;
-uint8_t state_after = 0;
-uint8_t state_loop = 0;
+uint8_t expected_bytes = 13;
 
 
-uint8_t  reg_iocfg[3] = {0};
 uint8_t  reg_all_before[46] = {0};
 uint8_t  reg_all_after[46] = {0};
 
-uint8_t freq_433[3] = { 0x10, 0xB0, 0x71 };
+cc1101_marc_state marcstate = CC1101_MARC_SLEEP;
+uint8_t rx_bytes = 0xFF;
+uint8_t rx[61] = {0};
+
+uint8_t lqi = 0;
+int16_t rssi = 0;
 
 /* USER CODE END PV */
 
@@ -112,28 +111,24 @@ int main(void)
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
-  // Pull CS high before starting communication
-  HAL_GPIO_WritePin(SPI1_CS_GPIO_Port, SPI1_CS_Pin, GPIO_PIN_SET);
 
-  // CC1101 Init and configuration
+  // CC1101 Init
   CC1101_Init(&cc1101, &hspi1, SPI1_CS_GPIO_Port, SPI1_CS_Pin);
 
-  CC1101_read_status(&cc1101, CC1101_PARTNUM, &status_part);
-  CC1101_read_status(&cc1101, CC1101_VERSION, &status_ver);
+  // CC1101 Debugging tests
+  CC1101_read_status(&cc1101, CC1101_STATUS_PARTNUM, &status_part);
+  CC1101_read_status(&cc1101, CC1101_STATUS_VERSION, &status_ver);
 
-  CC1101_read_register_burst(&cc1101, CC1101_IOCFG2, reg_all_before, 46);
-  CC1101_write_register(&cc1101, CC1101_PKTLEN, 0x02);
-  CC1101_write_register_burst(&cc1101, CC1101_FREQ2, freq_433, 3);
-  CC1101_read_register_burst(&cc1101, CC1101_IOCFG2, reg_all_after, 46);
-
-  CC1101_read_register(&cc1101, CC1101_IOCFG1, &reg_test1);
-
-  //CC1101_Apply433_38k4(&cc);
+  // CC1101 configuration
+  CC1101_read_register_burst(&cc1101, CC1101_REG_IOCFG2, reg_all_before, 46);
   CC1101_Apply433_38k4(&cc1101);
-  //CC1101_EnterRx(&cc);
-  CC1101_read_strobe(&cc1101, CC1101_SNOP, &state_before);
+  CC1101_read_register_burst(&cc1101, CC1101_REG_IOCFG2, reg_all_after, 46);
+
+  CC1101_Set_Rx_threshold(&cc1101, CC1101_RX_0dB);
+
+  // CC1101 Start Rx
   CC1101_EnterRx(&cc1101);
-  CC1101_read_strobe(&cc1101, CC1101_SNOP, &state_after);
+
 
   /* USER CODE END 2 */
 
@@ -145,10 +140,28 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
+	//CC1101 Read RX Bytes
+	CC1101_read_status(&cc1101, CC1101_STATUS_RXBYTES, &rx_bytes);
+	CC1101_read_marcstate(&cc1101, &marcstate);
 
-	CC1101_read_strobe(&cc1101, CC1101_SNOP, &state_loop);
-	HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
-	HAL_Delay(200);
+	if ((rx_bytes % expected_bytes == 0) & (rx_bytes > 0))
+	{
+		CC1101_read_RX_FIFO(&cc1101, rx, rx_bytes);
+		CC1101_read_status(&cc1101, CC1101_STATUS_LQI, &lqi);
+		//CC1101_read_status(&cc1101, CC1101_STATUS_RSSI, &rssi);
+		CC1101_Get_RSSI(&cc1101, &rssi);
+
+		//indicate byte read
+		HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
+	}
+	else if (rx_bytes > expected_bytes)
+	{
+		CC1101_write_strobe(&cc1101, CC1101_STROBE_SFRX);  // clear RX FIFO
+	}
+
+	//Loop timing and debug led
+	//HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
+	HAL_Delay(2);
 
   }
   /* USER CODE END 3 */

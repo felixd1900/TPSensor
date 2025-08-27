@@ -1,19 +1,190 @@
 #include "cc1101.h"
 
-// ---------- CS-Helper ----------
-static inline void cs_high(cc1101_t *d){
+//================Logic to use CS pin correctly====================
+static void cs_high(cc1101_t *d)
+{
     HAL_GPIO_WritePin(d->cs_port, d->cs_pin, GPIO_PIN_SET);
 }
-static inline void cs_low_wait_ready(cc1101_t *d){
+
+static void cs_low_wait_ready(cc1101_t *d)
+{
     HAL_GPIO_WritePin(d->cs_port, d->cs_pin, GPIO_PIN_RESET);
-    // Warten bis MISO low (Chip ready)
+    // Wait until MIISO low (CHIP_RDY Bit)
     uint32_t guard = 0;
     while (HAL_GPIO_ReadPin(CC1101_MISO_GPIO_Port, CC1101_MISO_Pin) == GPIO_PIN_SET && guard++ < 3000){
         __NOP(); __NOP(); __NOP(); __NOP();
     }
 }
 
-// ---------- Init/Reset ----------
+//========================Helper functions==========================
+static uint8_t create_header(uint8_t addr, cc1101_access_mode mode)
+{
+	uint8_t header = (addr & 0x3F) | mode;
+	return header;
+}
+
+static c1101_status_word convert_status(uint8_t status_byte)
+{
+	c1101_status_word status;
+	status.chip_rdy = status_byte & 0x80;
+	status.state = status_byte & 0x70;
+	status.fifo_bytes = status_byte & 0x0F;
+	return status;
+}
+
+
+//===================================Register==========================================
+void CC1101_write_register(cc1101_t *dev, cc1101_register addr, uint8_t val)
+{
+	//works
+	uint8_t header = create_header(addr, CC1101_ACCESS_WRITE);
+    uint8_t tx[2] = { header, val };
+
+    cs_low_wait_ready(dev);
+    HAL_Delay(1);
+    HAL_SPI_Transmit(dev->hspi, tx, 2, 50);
+    cs_high(dev);
+}
+
+void CC1101_write_register_burst(cc1101_t *dev, cc1101_register start_addr, uint8_t *buf, uint8_t len)
+{
+	//works
+	uint8_t header = create_header(start_addr, CC1101_ACCESS_WRITE_BURST);
+
+	cs_low_wait_ready(dev);
+    HAL_Delay(1);
+    HAL_SPI_Transmit(dev->hspi, &header, 1, 50);
+    HAL_SPI_Transmit(dev->hspi, buf, len, 100);
+    cs_high(dev);
+}
+
+void CC1101_read_register(cc1101_t *dev, cc1101_register addr, uint8_t *val)
+{
+	//works byte 0 is status byte
+	uint8_t tx[2] = { create_header(addr, CC1101_ACCESS_READ), 0x00}; // Add dummy byte
+	uint8_t rx[2] = {0,0};
+
+	cs_low_wait_ready(dev);
+    HAL_Delay(1);
+    HAL_SPI_TransmitReceive(dev->hspi, tx, rx, 2, 50);
+    cs_high(dev);
+    *val = rx[1];
+}
+
+void CC1101_read_register_burst(cc1101_t *dev, cc1101_register start_addr, uint8_t *arr_val, uint8_t len)
+{
+	//works
+	uint8_t header = create_header(start_addr, CC1101_ACCESS_READ_BURST);
+
+	cs_low_wait_ready(dev);
+    HAL_Delay(1);
+    HAL_SPI_Transmit(dev->hspi, &header, 1, 50);
+    HAL_SPI_Receive(dev->hspi, arr_val, len, 100);
+    cs_high(dev);
+}
+
+
+//====================================Strobes==========================================
+void CC1101_write_strobe(cc1101_t *dev, cc1101_strobe cmd)
+{
+	//works
+	uint8_t tx = create_header(cmd, CC1101_ACCESS_WRITE);
+
+    cs_low_wait_ready(dev);
+    HAL_Delay(1);
+    HAL_SPI_Transmit(dev->hspi, &tx, 1, 50);
+    cs_high(dev);
+}
+
+void CC1101_read_strobe(cc1101_t *dev, cc1101_strobe addr, uint8_t *val)
+{
+	//works byte 0 is status byte
+	uint8_t tx[2] = { create_header(addr, CC1101_ACCESS_READ), 0x00}; // Add dummy byte
+	uint8_t rx[2] = {0,0};
+
+	cs_low_wait_ready(dev);
+    HAL_Delay(1);
+    HAL_SPI_TransmitReceive(dev->hspi, tx, rx, 2, 50);
+    cs_high(dev);
+    *val = rx[1];
+}
+
+//=====================================Status===========================================
+void CC1101_read_status(cc1101_t *dev, cc1101_status_register addr, uint8_t *val)
+{
+	//works byte 0 is status byte
+	uint8_t tx[2] = { create_header(addr, CC1101_ACCESS_READ_BURST), 0x00}; // Add dummy byte
+	uint8_t rx[2] = {0,0};
+
+	cs_low_wait_ready(dev);
+    HAL_Delay(1);
+    HAL_SPI_TransmitReceive(dev->hspi, tx, rx, 2, 50);
+    cs_high(dev);
+    *val = rx[1];
+}
+
+
+//===============================Power table (patable)==================================
+
+void CC1101_write_Patable(cc1101_t *dev, uint8_t *buf)
+{
+	uint8_t header = create_header(CC1101_PATABLE, CC1101_ACCESS_WRITE_BURST);
+
+	cs_low_wait_ready(dev);
+    HAL_Delay(1);
+    HAL_SPI_Transmit(dev->hspi, &header, 1, 50);
+    HAL_SPI_Transmit(dev->hspi, buf, 8, 100);
+    cs_high(dev);
+}
+
+void CC1101_read_Patable(cc1101_t *dev, uint8_t *arr_val)
+{
+	uint8_t header = create_header(CC1101_PATABLE, CC1101_ACCESS_READ_BURST);
+
+	cs_low_wait_ready(dev);
+    HAL_Delay(1);
+    HAL_SPI_Transmit(dev->hspi, &header, 1, 50);
+    HAL_SPI_Receive(dev->hspi, arr_val, 8, 100);
+    cs_high(dev);
+}
+
+
+
+//===================================FIFO access===========================================
+
+void CC1101_write_TX_FIFO(cc1101_t *dev, uint8_t *buf, uint8_t len)
+{
+	uint8_t header = create_header(CC1101_FIFO, CC1101_ACCESS_WRITE_BURST);
+
+	cs_low_wait_ready(dev);
+    HAL_Delay(1);
+    HAL_SPI_Transmit(dev->hspi, &header, 1, 50);
+    HAL_SPI_Transmit(dev->hspi, buf, len, 100);
+    cs_high(dev);
+}
+
+void CC1101_read_RX_FIFO(cc1101_t *dev, uint8_t *arr_val, uint8_t len)
+{
+	uint8_t header = create_header(CC1101_FIFO, CC1101_ACCESS_READ_BURST);
+
+	cs_low_wait_ready(dev);
+    HAL_Delay(1);
+    HAL_SPI_Transmit(dev->hspi, &header, 1, 50);
+    HAL_SPI_Receive(dev->hspi, arr_val, len, 100);
+    cs_high(dev);
+}
+
+
+//===================================Status messages===========================================
+void CC1101_read_marcstate(cc1101_t *dev, cc1101_marc_state *state)
+{
+	uint8_t value = 0xFF;
+	CC1101_read_status(dev, CC1101_STATUS_MARCSTATE, &value);
+	*state = value & 0x1F;
+}
+
+
+//====================================Configuration=======================================
 void CC1101_Init(cc1101_t *dev,
                  SPI_HandleTypeDef *hspi,
                  GPIO_TypeDef *cs_port, uint16_t cs_pin)
@@ -22,164 +193,123 @@ void CC1101_Init(cc1101_t *dev,
     dev->cs_port = cs_port;
     dev->cs_pin  = cs_pin;
 
+    // CS initial high
     cs_high(dev);
     HAL_Delay(1);
 
-    // Reset-Sequenz + SRES (0x30)
-    HAL_GPIO_WritePin(dev->cs_port, dev->cs_pin, GPIO_PIN_RESET); HAL_Delay(1);
-    HAL_GPIO_WritePin(dev->cs_port, dev->cs_pin, GPIO_PIN_SET);   HAL_Delay(1);
-    HAL_GPIO_WritePin(dev->cs_port, dev->cs_pin, GPIO_PIN_RESET); HAL_Delay(1);
-
-    uint8_t sres = CC1101_SRES, dummy = 0;
+    // Reset Sequence
     cs_low_wait_ready(dev);
-    HAL_SPI_TransmitReceive(dev->hspi, &sres, &dummy, 1, 50);
+    HAL_Delay(1);
     cs_high(dev);
+    HAL_Delay(1);
+    cs_low_wait_ready(dev);
+    HAL_Delay(1);
+    CC1101_write_strobe(dev, CC1101_STROBE_SRES);
     HAL_Delay(2);
+    cs_high(dev);
 }
 
-// ---------- Config R/W ----------
-uint8_t CC1101_ReadConfig_Single(cc1101_t *d, uint8_t addr)
+
+void CC1101_Apply433_38k4(cc1101_t *dev)
 {
-    uint8_t hdr = CC1101_HDR_READ_SINGLE(addr);
-    uint8_t val = 0;
-    cs_low_wait_ready(d);
-    HAL_SPI_Transmit(d->hspi, &hdr, 1, 50);
-    __NOP(); __NOP(); __NOP(); __NOP();
-    HAL_SPI_Receive (d->hspi, &val, 1, 50);
-    cs_high(d);
-    return val;
+	//MCSM1 Bit 2 & 3 are required to stay in RX Mode after receiving a package (SmartRF Studio does not set this by default
+	CC1101_write_register(dev, CC1101_REG_MCSM1, 0x3C);   //Main Radio Control State Machine Configuration
+	//
+	//Rf settings for 433.92MHz TX
+	//
+	CC1101_write_register(dev, CC1101_REG_IOCFG0, 0x06);  //GDO0 Output Pin Configuration
+	CC1101_write_register(dev, CC1101_REG_FIFOTHR, 0x47); //RX FIFO and TX FIFO Thresholds
+	CC1101_write_register(dev, CC1101_REG_SYNC1, 0xD3);   //Sync Word, High Byte
+	CC1101_write_register(dev, CC1101_REG_SYNC0, 0x91);   //Sync Word, Low Byte
+	CC1101_write_register(dev, CC1101_REG_PKTCTRL1, 0x04);//Packet Automation Control
+	CC1101_write_register(dev, CC1101_REG_PKTCTRL0, 0x05);//Packet Automation Control
+	CC1101_write_register(dev, CC1101_REG_CHANNR, 0x00);  //Channel Number
+	CC1101_write_register(dev, CC1101_REG_FSCTRL1, 0x06); //Frequency Synthesizer Control
+	CC1101_write_register(dev, CC1101_REG_FREQ2, 0x10);   //Frequency Control Word, High Byte
+	CC1101_write_register(dev, CC1101_REG_FREQ1, 0xB0);   //Frequency Control Word, Middle Byte
+	CC1101_write_register(dev, CC1101_REG_FREQ0, 0x71);   //Frequency Control Word, Low Byte
+	CC1101_write_register(dev, CC1101_REG_MDMCFG4, 0xCA); //Modem Configuration
+	CC1101_write_register(dev, CC1101_REG_MDMCFG3, 0x83); //Modem Configuration
+	CC1101_write_register(dev, CC1101_REG_MDMCFG2, 0x13); //Modem Configuration
+	CC1101_write_register(dev, CC1101_REG_MDMCFG1, 0x42); //Modem Configuration
+	CC1101_write_register(dev, CC1101_REG_MDMCFG0, 0xF8); //Modem Configuration
+	CC1101_write_register(dev, CC1101_REG_DEVIATN, 0x35); //Modem Deviation Setting
+	CC1101_write_register(dev, CC1101_REG_MCSM0, 0x18);   //Main Radio Control State Machine Configuration
+	CC1101_write_register(dev, CC1101_REG_FOCCFG, 0x16);  //Frequency Offset Compensation Configuration
+	CC1101_write_register(dev, CC1101_REG_AGCCTRL2, 0x43);//AGC Control
+	CC1101_write_register(dev, CC1101_REG_WORCTRL, 0xFB); //Wake On Radio Control
+	CC1101_write_register(dev, CC1101_REG_FREND0, 0x10);  //Front End TX Configuration
+	CC1101_write_register(dev, CC1101_REG_FSCAL3, 0xE9);  //Frequency Synthesizer Calibration
+	CC1101_write_register(dev, CC1101_REG_FSCAL2, 0x2A);  //Frequency Synthesizer Calibration
+	CC1101_write_register(dev, CC1101_REG_FSCAL1, 0x00);  //Frequency Synthesizer Calibration
+	CC1101_write_register(dev, CC1101_REG_FSCAL0, 0x1F);  //Frequency Synthesizer Calibration
+	CC1101_write_register(dev, CC1101_REG_TEST2, 0x81);   //Various Test Settings
+	CC1101_write_register(dev, CC1101_REG_TEST1, 0x35);   //Various Test Settings
+	CC1101_write_register(dev, CC1101_REG_TEST0, 0x09);   //Various Test Settings
 }
 
-HAL_StatusTypeDef CC1101_ReadConfig_Burst(cc1101_t *d, uint8_t start_addr, uint8_t *dst, uint8_t len)
+//===============================RX Methods================================
+void CC1101_EnterRx(cc1101_t *dev)
 {
-    if (!dst || len == 0) return HAL_ERROR;
-    uint8_t hdr = CC1101_HDR_READ_BURST(start_addr);
-    cs_low_wait_ready(d);
-    if (HAL_SPI_Transmit(d->hspi, &hdr, 1, 50) != HAL_OK){ cs_high(d); return HAL_ERROR; }
-    HAL_StatusTypeDef r = HAL_SPI_Receive(d->hspi, dst, len, 100);
-    cs_high(d);
-    return r;
+	CC1101_write_strobe(dev, CC1101_STROBE_SIDLE);
+	CC1101_write_strobe(dev, CC1101_STROBE_SFRX);  // clear RX FIFO
+	CC1101_write_strobe(dev, CC1101_STROBE_SRX);
 }
 
-HAL_StatusTypeDef CC1101_WriteConfig_Single(cc1101_t *d, uint8_t addr, uint8_t val)
+void CC1101_Set_Rx_threshold(cc1101_t *dev, c1101_rx_threshold val)
 {
-    uint8_t tx[2] = { CC1101_HDR_WRITE_SINGLE(addr), val };
-    cs_low_wait_ready(d);
-    HAL_StatusTypeDef r = HAL_SPI_Transmit(d->hspi, tx, 2, 50);
-    cs_high(d);
-    return r;
+	uint8_t fifothr = 0x00;
+	CC1101_read_register(dev, CC1101_REG_FIFOTHR, &fifothr);
+	CC1101_write_register(dev, CC1101_REG_FIFOTHR, (fifothr | val));
 }
 
-HAL_StatusTypeDef CC1101_WriteConfig_Burst(cc1101_t *d, uint8_t start_addr, const uint8_t *src, uint8_t len)
+void CC1101_Get_RSSI(cc1101_t *dev, int16_t *rssi)
 {
-    if (!src || len == 0) return HAL_ERROR;
-    uint8_t hdr = CC1101_HDR_WRITE_BURST(start_addr);
-    cs_low_wait_ready(d);
-    if (HAL_SPI_Transmit(d->hspi, &hdr, 1, 50) != HAL_OK){ cs_high(d); return HAL_ERROR; }
-    HAL_StatusTypeDef r = HAL_SPI_Transmit(d->hspi, (uint8_t*)src, len, 100);
-    cs_high(d);
-    return r;
+	uint8_t rssi_raw = 0;
+	CC1101_read_status(dev, CC1101_STATUS_RSSI, &rssi_raw);
+
+	if(rssi_raw < 128)
+	{
+		*rssi = rssi_raw / 2 - CC1101_RSSI_OFFSET;
+	}
+	else
+	{
+		*rssi = (rssi_raw - 256) / 2 -CC1101_RSSI_OFFSET;
+	}
 }
 
-// ---------- Status (nur Single) ----------
-uint8_t CC1101_ReadStatus(cc1101_t *d, uint8_t status_addr)
+//===============================TX Methods================================
+void CC1101_PrepareTx(cc1101_t *dev)
 {
-    uint8_t hdr = CC1101_HDR_READ_SINGLE(status_addr);
-    uint8_t val = 0;
-    cs_low_wait_ready(d);
-    HAL_SPI_Transmit(d->hspi, &hdr, 1, 50);
-    __NOP(); __NOP(); __NOP(); __NOP();
-    HAL_SPI_Receive (d->hspi, &val, 1, 50);
-    cs_high(d);
-    return val;
+	CC1101_write_strobe(dev, CC1101_STROBE_SIDLE);
+	CC1101_write_strobe(dev, CC1101_STROBE_SFTX);  // clear TX FIFO
 }
 
-HAL_StatusTypeDef CC1101_ReadPartVersion(cc1101_t *d, uint8_t *part, uint8_t *ver)
+void CC1101_Set_Tx_power(cc1101_t *dev, cc1101_tx_power power)
 {
-    if (!part || !ver) return HAL_ERROR;
-    *part = CC1101_ReadStatus(d, CC1101_PARTNUM);  // erwartet 0x00
-    *ver  = CC1101_ReadStatus(d, CC1101_VERSION);  // bei dir ~0x14/0x0F
-    return HAL_OK;
+	uint8_t pa_table[8] = {0xc0,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+	pa_table[0] = power;
+	CC1101_write_Patable(dev, pa_table);
 }
 
-// ---------- 433,92 MHz @ ~38,4 kbps 2-FSK ----------
-void CC1101_Apply433_38k4(cc1101_t *d)
+uint32_t CC1101_SendTx(cc1101_t *dev)
 {
-    // in IDLE + TX-FIFO leeren
-    (void)CC1101_ReadStatus(d, CC1101_MARCSTATE);
-    uint8_t sidle = CC1101_SIDLE, sftx = CC1101_SFTX;
-    cs_low_wait_ready(d); HAL_SPI_Transmit(d->hspi, &sidle, 1, 50); cs_high(d);
-    cs_low_wait_ready(d); HAL_SPI_Transmit(d->hspi, &sftx,  1, 50); cs_high(d);
+	//expected state when starting is idle
+	CC1101_write_strobe(dev, CC1101_STROBE_STX);  // send Tx FIFO
+	cc1101_marc_state state = CC1101_MARC_SLEEP;
+	uint32_t timer_start = HAL_GetTick();
 
-    // Packet/Modem
-    CC1101_WriteConfig_Single(d, CC1101_IOCFG2,   0x0B); // optional (GDO2)
-    CC1101_WriteConfig_Single(d, CC1101_IOCFG0,   0x06); // optional (GDO0)
-    CC1101_WriteConfig_Single(d, CC1101_FIFOTHR,  0x07);
-    CC1101_WriteConfig_Single(d, CC1101_PKTLEN,   61);
-    CC1101_WriteConfig_Single(d, CC1101_PKTCTRL1, 0x04); // append status
-    CC1101_WriteConfig_Single(d, CC1101_PKTCTRL0, 0x45); // var len, CRC on, whitening off
-
-    CC1101_WriteConfig_Single(d, CC1101_CHANNR,   0x00);
-    CC1101_WriteConfig_Single(d, CC1101_FSCTRL1,  0x06);
-    CC1101_WriteConfig_Single(d, CC1101_FSCTRL0,  0x00);
-
-    // 433.92 MHz @ 26 MHz XTAL
-    CC1101_WriteConfig_Single(d, CC1101_FREQ2,    0x10);
-    CC1101_WriteConfig_Single(d, CC1101_FREQ1,    0xB0);
-    CC1101_WriteConfig_Single(d, CC1101_FREQ0,    0x71);
-
-    // 2-FSK ~38.4 kbps
-    CC1101_WriteConfig_Single(d, CC1101_MDMCFG4,  0xCA);
-    CC1101_WriteConfig_Single(d, CC1101_MDMCFG3,  0x83);
-    CC1101_WriteConfig_Single(d, CC1101_MDMCFG2,  0x13); // 30/32 sync
-    CC1101_WriteConfig_Single(d, CC1101_MDMCFG1,  0x22);
-    CC1101_WriteConfig_Single(d, CC1101_MDMCFG0,  0xF8);
-
-    CC1101_WriteConfig_Single(d, CC1101_DEVIATN,  0x35); // ~20.6 kHz (passt zur RxBW)
-    CC1101_WriteConfig_Single(d, CC1101_MCSM0,    0x18); // autocal on TX/RX
-
-    CC1101_WriteConfig_Single(d, CC1101_FREND0,   0x11);
-    CC1101_WriteConfig_Single(d, CC1101_FSCAL3,   0xE9);
-    CC1101_WriteConfig_Single(d, CC1101_FSCAL2,   0x2A);
-    CC1101_WriteConfig_Single(d, CC1101_FSCAL1,   0x00);
-    CC1101_WriteConfig_Single(d, CC1101_FSCAL0,   0x1F);
-    CC1101_WriteConfig_Single(d, CC1101_TEST2,    0x81);
-    CC1101_WriteConfig_Single(d, CC1101_TEST1,    0x35);
-    CC1101_WriteConfig_Single(d, CC1101_TEST0,    0x09);
-
-    // PA (1 byte reicht)
-    CC1101_WriteConfig_Single(d, CC1101_PATABLE,  0xC5); // ~+10 dBm
-}
-
-// ---------- Senden ----------
-HAL_StatusTypeDef CC1101_SendPacket(cc1101_t *d, const uint8_t *data, uint8_t len)
-{
-    if (!data || len == 0 || len > 61) return HAL_ERROR;
-
-    // IDLE + TX FIFO flush
-    uint8_t sidle = CC1101_SIDLE, sftx = CC1101_SFTX, stx = CC1101_STX;
-    cs_low_wait_ready(d); HAL_SPI_Transmit(d->hspi, &sidle, 1, 50); cs_high(d);
-    cs_low_wait_ready(d); HAL_SPI_Transmit(d->hspi, &sftx,  1, 50); cs_high(d);
-
-    // TXFIFO schreiben: [len][payload...]
-    uint8_t hdr = CC1101_HDR_WRITE_BURST(CC1101_TXFIFO);
-    cs_low_wait_ready(d);
-    if (HAL_SPI_Transmit(d->hspi, &hdr, 1, 50) != HAL_OK){ cs_high(d); return HAL_ERROR; }
-    if (HAL_SPI_Transmit(d->hspi, &len, 1, 50)      != HAL_OK){ cs_high(d); return HAL_ERROR; }
-    if (HAL_SPI_Transmit(d->hspi, (uint8_t*)data, len, 200) != HAL_OK){ cs_high(d); return HAL_ERROR; }
-    cs_high(d);
-
-    // Senden
-    cs_low_wait_ready(d); HAL_SPI_Transmit(d->hspi, &stx, 1, 50); cs_high(d);
-
-    // kurze Wartezeit (kleine Payload) + zurück in IDLE
-    HAL_Delay(10);
-    cs_low_wait_ready(d); HAL_SPI_Transmit(d->hspi, &sidle, 1, 50); cs_high(d);
-    return HAL_OK;
-}
-
-HAL_StatusTypeDef CC1101_SendCounter(cc1101_t *d, uint8_t counter)
-{
-    uint8_t p[2] = { 0x01, counter };
-    return CC1101_SendPacket(d, p, sizeof p);
+	//wait for state to return to idle after sending fifo
+	while(1)
+	{
+		CC1101_read_marcstate(dev, &state);
+		if((state == CC1101_MARC_IDLE) | ((HAL_GetTick() - timer_start) > 200))
+		{
+			return (HAL_GetTick() - timer_start);
+		}
+		else
+		{
+			HAL_Delay(1);
+		}
+	}
 }

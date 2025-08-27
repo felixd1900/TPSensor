@@ -66,12 +66,13 @@ abp2_status ABP2_ReadPressure(abp2_t *dev, float *pressure)
 	return status;
 }
 
-abp2_status ABP2_ReadAll(abp2_t *dev, float *pressure, float *temperature)
+abp2_status ABP2_ReadAll(abp2_t *dev, float *pressure, float *temperature, uint8_t *status_raw)
 {
 	uint8_t buffer[7] = {0};
 	abp2_status status;
 
 	read_data(dev, buffer, 7);
+	status_raw = buffer[0];
 	parse_status(buffer, &status);
 	parse_pressure(buffer, pressure, ABP2_TP_MIN, ABP2_TP_MAX);
 	parse_temp(buffer, temperature);

@@ -34,7 +34,7 @@ static c1101_status_word convert_status(uint8_t status_byte)
 
 
 //===================================Register==========================================
-void CC1101_write_register(cc1101_t *dev, uint8_t addr, uint8_t val)
+void CC1101_write_register(cc1101_t *dev, cc1101_register addr, uint8_t val)
 {
 	//works
 	uint8_t header = create_header(addr, CC1101_ACCESS_WRITE);
@@ -46,7 +46,7 @@ void CC1101_write_register(cc1101_t *dev, uint8_t addr, uint8_t val)
     cs_high(dev);
 }
 
-void CC1101_write_register_burst(cc1101_t *dev, uint8_t start_addr, uint8_t *buf, uint8_t len)
+void CC1101_write_register_burst(cc1101_t *dev, cc1101_register start_addr, uint8_t *buf, uint8_t len)
 {
 	//works
 	uint8_t header = create_header(start_addr, CC1101_ACCESS_WRITE_BURST);
@@ -58,7 +58,7 @@ void CC1101_write_register_burst(cc1101_t *dev, uint8_t start_addr, uint8_t *buf
     cs_high(dev);
 }
 
-void CC1101_read_register(cc1101_t *dev, uint8_t addr, uint8_t *val)
+void CC1101_read_register(cc1101_t *dev, cc1101_register addr, uint8_t *val)
 {
 	//works byte 0 is status byte
 	uint8_t tx[2] = { create_header(addr, CC1101_ACCESS_READ), 0x00}; // Add dummy byte
@@ -71,7 +71,7 @@ void CC1101_read_register(cc1101_t *dev, uint8_t addr, uint8_t *val)
     *val = rx[1];
 }
 
-void CC1101_read_register_burst(cc1101_t *dev, uint8_t start_addr, uint8_t *arr_val, uint8_t len)
+void CC1101_read_register_burst(cc1101_t *dev, cc1101_register start_addr, uint8_t *arr_val, uint8_t len)
 {
 	//works
 	uint8_t header = create_header(start_addr, CC1101_ACCESS_READ_BURST);
@@ -85,7 +85,7 @@ void CC1101_read_register_burst(cc1101_t *dev, uint8_t start_addr, uint8_t *arr_
 
 
 //====================================Strobes==========================================
-void CC1101_write_strobe(cc1101_t *dev, uint8_t cmd)
+void CC1101_write_strobe(cc1101_t *dev, cc1101_strobe cmd)
 {
 	//works
 	uint8_t tx = create_header(cmd, CC1101_ACCESS_WRITE);
@@ -96,7 +96,7 @@ void CC1101_write_strobe(cc1101_t *dev, uint8_t cmd)
     cs_high(dev);
 }
 
-void CC1101_read_strobe(cc1101_t *dev, uint8_t addr, uint8_t *val)
+void CC1101_read_strobe(cc1101_t *dev, cc1101_strobe addr, uint8_t *val)
 {
 	//works byte 0 is status byte
 	uint8_t tx[2] = { create_header(addr, CC1101_ACCESS_READ), 0x00}; // Add dummy byte
@@ -110,7 +110,7 @@ void CC1101_read_strobe(cc1101_t *dev, uint8_t addr, uint8_t *val)
 }
 
 //=====================================Status===========================================
-void CC1101_read_status(cc1101_t *dev, uint8_t addr, uint8_t *val)
+void CC1101_read_status(cc1101_t *dev, cc1101_status_register addr, uint8_t *val)
 {
 	//works byte 0 is status byte
 	uint8_t tx[2] = { create_header(addr, CC1101_ACCESS_READ_BURST), 0x00}; // Add dummy byte
@@ -122,6 +122,32 @@ void CC1101_read_status(cc1101_t *dev, uint8_t addr, uint8_t *val)
     cs_high(dev);
     *val = rx[1];
 }
+
+
+//===============================Power table (patable)==================================
+
+void CC1101_write_Patable(cc1101_t *dev, uint8_t *buf)
+{
+	uint8_t header = create_header(CC1101_PATABLE, CC1101_ACCESS_WRITE_BURST);
+
+	cs_low_wait_ready(dev);
+    HAL_Delay(1);
+    HAL_SPI_Transmit(dev->hspi, &header, 1, 50);
+    HAL_SPI_Transmit(dev->hspi, buf, 8, 100);
+    cs_high(dev);
+}
+
+void CC1101_read_Patable(cc1101_t *dev, uint8_t *arr_val)
+{
+	uint8_t header = create_header(CC1101_PATABLE, CC1101_ACCESS_READ_BURST);
+
+	cs_low_wait_ready(dev);
+    HAL_Delay(1);
+    HAL_SPI_Transmit(dev->hspi, &header, 1, 50);
+    HAL_SPI_Receive(dev->hspi, arr_val, 8, 100);
+    cs_high(dev);
+}
+
 
 
 //===================================FIFO access===========================================
@@ -148,7 +174,15 @@ void CC1101_read_RX_FIFO(cc1101_t *dev, uint8_t *arr_val, uint8_t len)
     cs_high(dev);
 }
 
-//================================Power table (patable)===================================
+
+//===================================Status messages===========================================
+void CC1101_read_marcstate(cc1101_t *dev, cc1101_marc_state *state)
+{
+	uint8_t value = 0xFF;
+	CC1101_read_status(dev, CC1101_STATUS_MARCSTATE, &value);
+	*state = value & 0x1F;
+}
+
 
 //====================================Configuration=======================================
 void CC1101_Init(cc1101_t *dev,
@@ -170,7 +204,7 @@ void CC1101_Init(cc1101_t *dev,
     HAL_Delay(1);
     cs_low_wait_ready(dev);
     HAL_Delay(1);
-    CC1101_write_strobe(dev, CC1101_SRES);
+    CC1101_write_strobe(dev, CC1101_STROBE_SRES);
     HAL_Delay(2);
     cs_high(dev);
 }
@@ -178,55 +212,104 @@ void CC1101_Init(cc1101_t *dev,
 
 void CC1101_Apply433_38k4(cc1101_t *dev)
 {
-	CC1101_write_strobe(dev, CC1101_SIDLE);
-	CC1101_write_strobe(dev, CC1101_SFRX); 				// RX FIFO leeren
-
-
-    CC1101_write_register(dev, CC1101_IOCFG2,   0x0B); 	// optional: use as CHP_RDYn state
-    CC1101_write_register(dev, CC1101_IOCFG0,   0x06); 	// CRC_OK/SYNC auf GDO0 (nur falls genutzt)
-
-    CC1101_write_register(dev, CC1101_FIFOTHR,  0x07);
-    CC1101_write_register(dev, CC1101_PKTLEN,   61);    // max Payload
-    CC1101_write_register(dev, CC1101_PKTCTRL1, 0x04);  // APPEND_STATUS=1 (RSSI,LQI)
-    CC1101_write_register(dev, CC1101_PKTCTRL0, 0x45);  // variable length, CRC on, whitening off
-
-    CC1101_write_register(dev, CC1101_CHANNR,   0x00);
-    CC1101_write_register(dev, CC1101_FSCTRL1,  0x06);
-    CC1101_write_register(dev, CC1101_FSCTRL0,  0x00);
-
-    // 433.92 MHz (26 MHz XTAL)
-    CC1101_write_register(dev, CC1101_FREQ2,    0x10);
-    CC1101_write_register(dev, CC1101_FREQ1,    0xB0);
-    CC1101_write_register(dev, CC1101_FREQ0,    0x71);
-
-    // 2-FSK ~38.4 kbps
-    CC1101_write_register(dev, CC1101_MDMCFG4,  0xCA);
-    CC1101_write_register(dev, CC1101_MDMCFG3,  0x83);
-    CC1101_write_register(dev, CC1101_MDMCFG2,  0x13); 	// 2-FSK, 30/32 Sync
-    CC1101_write_register(dev, CC1101_MDMCFG1,  0x22);
-    CC1101_write_register(dev, CC1101_MDMCFG0,  0xF8);
-
-    CC1101_write_register(dev, CC1101_DEVIATN,  0x35); 	// ~47 kHz
-    CC1101_write_register(dev, CC1101_MCSM0,    0x18);  // Autocal bei TX/RX
-
-    CC1101_write_register(dev, CC1101_FREND0,   0x11);
-    CC1101_write_register(dev, CC1101_FSCAL3,   0xE9);
-    CC1101_write_register(dev, CC1101_FSCAL2,   0x2A);
-    CC1101_write_register(dev, CC1101_FSCAL1,   0x00);
-    CC1101_write_register(dev, CC1101_FSCAL0,   0x1F);
-    CC1101_write_register(dev, CC1101_TEST2,    0x81);
-    CC1101_write_register(dev, CC1101_TEST1,    0x35);
-    CC1101_write_register(dev, CC1101_TEST0,    0x09);
-
-    // set TX power (not required for RX)
-    uint8_t pa = 0xC5;
-    CC1101_write_register_burst(dev, CC1101_PATABLE, &pa, 1);
+	//MCSM1 Bit 2 & 3 are required to stay in RX Mode after receiving a package (SmartRF Studio does not set this by default
+	CC1101_write_register(dev, CC1101_REG_MCSM1, 0x3C);   //Main Radio Control State Machine Configuration
+	//
+	//Rf settings for 433.92MHz TX
+	//
+	CC1101_write_register(dev, CC1101_REG_IOCFG0, 0x06);  //GDO0 Output Pin Configuration
+	CC1101_write_register(dev, CC1101_REG_FIFOTHR, 0x47); //RX FIFO and TX FIFO Thresholds
+	CC1101_write_register(dev, CC1101_REG_SYNC1, 0xD3);   //Sync Word, High Byte
+	CC1101_write_register(dev, CC1101_REG_SYNC0, 0x91);   //Sync Word, Low Byte
+	CC1101_write_register(dev, CC1101_REG_PKTCTRL1, 0x04);//Packet Automation Control
+	CC1101_write_register(dev, CC1101_REG_PKTCTRL0, 0x05);//Packet Automation Control
+	CC1101_write_register(dev, CC1101_REG_CHANNR, 0x00);  //Channel Number
+	CC1101_write_register(dev, CC1101_REG_FSCTRL1, 0x06); //Frequency Synthesizer Control
+	CC1101_write_register(dev, CC1101_REG_FREQ2, 0x10);   //Frequency Control Word, High Byte
+	CC1101_write_register(dev, CC1101_REG_FREQ1, 0xB0);   //Frequency Control Word, Middle Byte
+	CC1101_write_register(dev, CC1101_REG_FREQ0, 0x71);   //Frequency Control Word, Low Byte
+	CC1101_write_register(dev, CC1101_REG_MDMCFG4, 0xCA); //Modem Configuration
+	CC1101_write_register(dev, CC1101_REG_MDMCFG3, 0x83); //Modem Configuration
+	CC1101_write_register(dev, CC1101_REG_MDMCFG2, 0x13); //Modem Configuration
+	CC1101_write_register(dev, CC1101_REG_MDMCFG1, 0x42); //Modem Configuration
+	CC1101_write_register(dev, CC1101_REG_MDMCFG0, 0xF8); //Modem Configuration
+	CC1101_write_register(dev, CC1101_REG_DEVIATN, 0x35); //Modem Deviation Setting
+	CC1101_write_register(dev, CC1101_REG_MCSM0, 0x18);   //Main Radio Control State Machine Configuration
+	CC1101_write_register(dev, CC1101_REG_FOCCFG, 0x16);  //Frequency Offset Compensation Configuration
+	CC1101_write_register(dev, CC1101_REG_AGCCTRL2, 0x43);//AGC Control
+	CC1101_write_register(dev, CC1101_REG_WORCTRL, 0xFB); //Wake On Radio Control
+	CC1101_write_register(dev, CC1101_REG_FREND0, 0x10);  //Front End TX Configuration
+	CC1101_write_register(dev, CC1101_REG_FSCAL3, 0xE9);  //Frequency Synthesizer Calibration
+	CC1101_write_register(dev, CC1101_REG_FSCAL2, 0x2A);  //Frequency Synthesizer Calibration
+	CC1101_write_register(dev, CC1101_REG_FSCAL1, 0x00);  //Frequency Synthesizer Calibration
+	CC1101_write_register(dev, CC1101_REG_FSCAL0, 0x1F);  //Frequency Synthesizer Calibration
+	CC1101_write_register(dev, CC1101_REG_TEST2, 0x81);   //Various Test Settings
+	CC1101_write_register(dev, CC1101_REG_TEST1, 0x35);   //Various Test Settings
+	CC1101_write_register(dev, CC1101_REG_TEST0, 0x09);   //Various Test Settings
 }
 
+//===============================RX Methods================================
 void CC1101_EnterRx(cc1101_t *dev)
 {
-	CC1101_write_strobe(dev, CC1101_SIDLE);
-	CC1101_write_strobe(dev, CC1101_SFRX);  // sicherstellen, dass RX FIFO leer ist
-	CC1101_write_strobe(dev, CC1101_SRX);
+	CC1101_write_strobe(dev, CC1101_STROBE_SIDLE);
+	CC1101_write_strobe(dev, CC1101_STROBE_SFRX);  // clear RX FIFO
+	CC1101_write_strobe(dev, CC1101_STROBE_SRX);
 }
 
+void CC1101_Set_Rx_threshold(cc1101_t *dev, c1101_rx_threshold val)
+{
+	uint8_t fifothr = 0x00;
+	CC1101_read_register(dev, CC1101_REG_FIFOTHR, &fifothr);
+	CC1101_write_register(dev, CC1101_REG_FIFOTHR, (fifothr | val));
+}
+
+void CC1101_Get_RSSI(cc1101_t *dev, int16_t *rssi)
+{
+	uint8_t rssi_raw = 0;
+	CC1101_read_status(dev, CC1101_STATUS_RSSI, &rssi_raw);
+
+	if(rssi_raw < 128)
+	{
+		*rssi = rssi_raw / 2 - CC1101_RSSI_OFFSET;
+	}
+	else
+	{
+		*rssi = (rssi_raw - 256) / 2 - CC1101_RSSI_OFFSET;
+	}
+}
+
+//===============================TX Methods================================
+void CC1101_PrepareTx(cc1101_t *dev)
+{
+	CC1101_write_strobe(dev, CC1101_STROBE_SIDLE);
+	CC1101_write_strobe(dev, CC1101_STROBE_SFTX);  // clear TX FIFO
+}
+
+void CC1101_Set_Tx_power(cc1101_t *dev, cc1101_tx_power power)
+{
+	uint8_t pa_table[8] = {0xc0,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+	pa_table[0] = power;
+	CC1101_write_Patable(dev, pa_table);
+}
+
+uint32_t CC1101_SendTx(cc1101_t *dev)
+{
+	//expected state when starting is idle
+	CC1101_write_strobe(dev, CC1101_STROBE_STX);  // send Tx FIFO
+	cc1101_marc_state state = CC1101_MARC_SLEEP;
+	uint32_t timer_start = HAL_GetTick();
+
+	//wait for state to return to idle after sending fifo
+	while(1)
+	{
+		CC1101_read_marcstate(dev, &state);
+		if((state == CC1101_MARC_IDLE) | ((HAL_GetTick() - timer_start) > 200))
+		{
+			return (HAL_GetTick() - timer_start);
+		}
+		else
+		{
+			HAL_Delay(1);
+		}
+	}
+}
