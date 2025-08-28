@@ -39,7 +39,7 @@ uint32_t sensors_get_count(void)
 sensor_data* sensors_get_sensor(uint8_t sensor_id)
 {
 	// get sensor data by sensor id
-    int ix = find_index(sensor_id);
+    int ix = sensors_find_index(sensor_id);
     if (ix < 0) return NULL;
     return &sensors[ix].data;
 }
@@ -47,17 +47,15 @@ sensor_data* sensors_get_sensor(uint8_t sensor_id)
 void sensors_set_sensor(sensor_data sensor_new)
 {
 	// update last sensor values, or create sensor in map if sensor does not already exist
-    int ix = find_index(sensor_new.sensor_id);
+    int ix = sensors_find_index(sensor_new.sensor_id);
     if (ix < 0)
     {
-        ix = find_free_slot();
-        if (ix < 0)
+        ix = sensors_find_slot();
+        if (ix >= 0)
         {
-        	// all slots in use can't insert
-        	return NULL;
+            sensors[ix].used = true;
+            sensors[ix].data.sensor_id = sensor_new.sensor_id;
         }
-        sensors[ix].used = true;
-        sensors[ix].data.sensor_id = sensor_id;
     }
 
     sensor_map_t *s = &sensors[ix];

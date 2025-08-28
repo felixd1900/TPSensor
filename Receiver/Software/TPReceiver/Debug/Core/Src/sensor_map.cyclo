@@ -1,0 +1,7 @@
+../Core/Src/sensor_map.c:6:6:sensors_init	1
+../Core/Src/sensor_map.c:12:12:sensors_find_index	4
+../Core/Src/sensor_map.c:22:12:sensors_find_slot	3
+../Core/Src/sensor_map.c:31:10:sensors_get_count	3
+../Core/Src/sensor_map.c:39:14:sensors_get_sensor	2
+../Core/Src/sensor_map.c:47:6:sensors_set_sensor	3
+../Core/Src/sensor_map.c:72:6:sensors_clear_timeout	4

@@ -1,5 +1,6 @@
 "./Core/Src/cc1101.o"
 "./Core/Src/main.o"
+"./Core/Src/sensor_map.o"
 "./Core/Src/stm32l0xx_hal_msp.o"
 "./Core/Src/stm32l0xx_it.o"
 "./Core/Src/syscalls.o"

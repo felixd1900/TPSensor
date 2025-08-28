@@ -69,7 +69,7 @@ uint8_t status_ver = 0;
 uint8_t reg_all_before[46] = {0};
 uint8_t reg_all_after[46] = {0};
 
-uint8_t tx_fifo[12] = {};
+uint8_t tx_fifo[13] = {};
 uint8_t counter = 0;
 
 cc1101_marc_state marcstate = CC1101_MARC_SLEEP;
@@ -79,7 +79,7 @@ uint8_t freq_offset= 0xFF;
 uint32_t tx_timer = 0;
 uint8_t pa_table[8] = {0};
 
-cc1101_power_ramp[8] = {CC1101_TX_M30dB, CC1101_TX_M20dB, CC1101_TX_M15dB, CC1101_TX_M10dB, CC1101_TX_0dB, CC1101_TX_5dB, CC1101_TX_7dB, CC1101_TX_10dB};
+cc1101_tx_power cc1101_power_ramp[8] = {CC1101_TX_M30dB, CC1101_TX_M20dB, CC1101_TX_M15dB, CC1101_TX_M10dB, CC1101_TX_0dB, CC1101_TX_5dB, CC1101_TX_7dB, CC1101_TX_10dB};
 
 
 /* USER CODE END PV */
@@ -172,7 +172,7 @@ int main(void)
 
 
 	//CC1101 Send with all power levels
-	for(i = 0; i < sizeof(cc1101_tx_power); i++)
+	for(int i = 0; i < sizeof(cc1101_power_ramp); i++)
 	{
 		CC1101_Set_Tx_power(&cc1101, cc1101_power_ramp[i]);
 		CreateTx_Frame(tx_fifo, sensorid, cc1101_power_ramp[i], counter, abp2_pressure, abp2_temperature, abp2status_raw);
@@ -180,7 +180,7 @@ int main(void)
 		CC1101_read_Patable(&cc1101, pa_table);
 		tx_timer = CC1101_SendTx(&cc1101);
 
-		HAL_Delay(1000);
+		HAL_Delay(200);
 	}
 
 	// Status read out
@@ -191,7 +191,7 @@ int main(void)
 
 	//Loop Indication & Delay
 	HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
-	HAL_Delay(1000);
+	//HAL_Delay(200);
 
   }
 

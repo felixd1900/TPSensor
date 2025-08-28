@@ -55,7 +55,7 @@ cc1101_t cc1101;
 //Debug variables
 uint8_t status_part = 0;
 uint8_t status_ver = 0;
-uint8_t expected_bytes = 14;
+uint8_t expected_bytes = 13;
 
 
 uint8_t  reg_all_before[46] = {0};
@@ -75,7 +75,7 @@ static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 /* USER CODE BEGIN PFP */
 
-static void ParseRx_Frame(uint8_t *frame, uint8_t *power, uint8_t *counter, float *pressure, float *temperature, uint8_t *status_raw);
+static void ParseRx_Frame(uint8_t *frame, sensor_data *val);
 static void Bytearray_to_Float(uint8_t p[4], float *val);
 
 /* USER CODE END PFP */
@@ -151,19 +151,19 @@ int main(void)
 	CC1101_read_status(&cc1101, CC1101_STATUS_RXBYTES, &rx_bytes);
 	CC1101_read_marcstate(&cc1101, &marcstate);
 
+	CC1101_read_RX_FIFO(&cc1101, rx, rx_bytes);
+
 	if ((rx_bytes % expected_bytes == 0) & (rx_bytes > 0))
 	{
 		CC1101_read_RX_FIFO(&cc1101, rx, rx_bytes);
-		CC1101_read_status(&cc1101, CC1101_STATUS_LQI, &lqi);
-		//CC1101_read_status(&cc1101, CC1101_STATUS_RSSI, &rssi);
-		CC1101_Get_RSSI(&cc1101, &rssi);
+
 
 		//indicate byte read
 		HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
 	}
 	else if (rx_bytes > expected_bytes)
 	{
-		CC1101_write_strobe(&cc1101, CC1101_STROBE_SFRX);  // clear RX FIFO
+		//CC1101_write_strobe(&cc1101, CC1101_STROBE_SFRX);  // clear RX FIFO
 	}
 
 	//Loop timing and debug led
@@ -309,15 +309,14 @@ static void ParseRx_Frame(uint8_t *frame, sensor_data *val)
 {
 	//Frame length is automatically deleted when reading frame
     uint8_t i = 0;
-    uint8_t k = 0;
-    val->sensorid = frame[i++];										//get sensorid
+    val->sensor_id = frame[i++];										//get sensorid
     val->power = frame[i++];										//get tx power stage
     val->counter = frame[i++];                    					//get alive counter
     val->abp2_status_raw = frame[i++];								//get sensor status
 
-    Bytearray_to_Float(frame[i], val->abp2_pressure);				//get pressure as uint32
+    Bytearray_to_Float(frame[i], &val->abp2_pressure);				//get pressure as uint32
     i += 4;
-    Bytearray_to_Float(frame[i], val->abp2_temperature);			//get temperature as uint32
+    Bytearray_to_Float(frame[i], &val->abp2_temperature);			//get temperature as uint32
 }
 
 static void Bytearray_to_Float(uint8_t p[4], float *val)
@@ -327,7 +326,7 @@ static void Bytearray_to_Float(uint8_t p[4], float *val)
                  ((uint32_t)p[2] <<  8) |
                  ((uint32_t)p[3] <<  0);
 
-    memcpy(val, &u, sizeof f);
+    memcpy(val, &u, sizeof(val));
 }
 
 /* USER CODE END 4 */
