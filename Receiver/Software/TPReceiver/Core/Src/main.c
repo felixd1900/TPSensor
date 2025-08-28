@@ -23,10 +23,15 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "cc1101.h"
+#include "sensor_map.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+
+
+
+
 
 /* USER CODE END PTD */
 
@@ -50,7 +55,7 @@ cc1101_t cc1101;
 //Debug variables
 uint8_t status_part = 0;
 uint8_t status_ver = 0;
-uint8_t expected_bytes = 13;
+uint8_t expected_bytes = 14;
 
 
 uint8_t  reg_all_before[46] = {0};
@@ -58,10 +63,9 @@ uint8_t  reg_all_after[46] = {0};
 
 cc1101_marc_state marcstate = CC1101_MARC_SLEEP;
 uint8_t rx_bytes = 0xFF;
-uint8_t rx[61] = {0};
+uint8_t rx[20] = {0};
 
-uint8_t lqi = 0;
-int16_t rssi = 0;
+
 
 /* USER CODE END PV */
 
@@ -70,6 +74,9 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 /* USER CODE BEGIN PFP */
+
+static void ParseRx_Frame(uint8_t *frame, uint8_t *power, uint8_t *counter, float *pressure, float *temperature, uint8_t *status_raw);
+static void Bytearray_to_Float(uint8_t p[4], float *val);
 
 /* USER CODE END PFP */
 
@@ -297,6 +304,31 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+static void ParseRx_Frame(uint8_t *frame, sensor_data *val)
+{
+	//Frame length is automatically deleted when reading frame
+    uint8_t i = 0;
+    uint8_t k = 0;
+    val->sensorid = frame[i++];										//get sensorid
+    val->power = frame[i++];										//get tx power stage
+    val->counter = frame[i++];                    					//get alive counter
+    val->abp2_status_raw = frame[i++];								//get sensor status
+
+    Bytearray_to_Float(frame[i], val->abp2_pressure);				//get pressure as uint32
+    i += 4;
+    Bytearray_to_Float(frame[i], val->abp2_temperature);			//get temperature as uint32
+}
+
+static void Bytearray_to_Float(uint8_t p[4], float *val)
+{
+    uint32_t u = ((uint32_t)p[0] << 24) |
+                 ((uint32_t)p[1] << 16) |
+                 ((uint32_t)p[2] <<  8) |
+                 ((uint32_t)p[3] <<  0);
+
+    memcpy(val, &u, sizeof f);
+}
 
 /* USER CODE END 4 */
 

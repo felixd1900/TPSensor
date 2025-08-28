@@ -57,6 +57,8 @@ float abp2_temperature = 0.0f;
 abp2_status abp2status;
 uint8_t abp2status_raw = 0;
 
+uint8_t sensorid = 0x49;
+
 
 //=============CC1101 Variables============
 cc1101_t cc1101;
@@ -67,7 +69,7 @@ uint8_t status_ver = 0;
 uint8_t reg_all_before[46] = {0};
 uint8_t reg_all_after[46] = {0};
 
-uint8_t tx_fifo[11] = {};
+uint8_t tx_fifo[12] = {};
 uint8_t counter = 0;
 
 cc1101_marc_state marcstate = CC1101_MARC_SLEEP;
@@ -76,6 +78,8 @@ uint8_t freq_offset= 0xFF;
 
 uint32_t tx_timer = 0;
 uint8_t pa_table[8] = {0};
+
+cc1101_power_ramp[8] = {CC1101_TX_M30dB, CC1101_TX_M20dB, CC1101_TX_M15dB, CC1101_TX_M10dB, CC1101_TX_0dB, CC1101_TX_5dB, CC1101_TX_7dB, CC1101_TX_10dB};
 
 
 /* USER CODE END PV */
@@ -88,10 +92,8 @@ static void MX_SPI1_Init(void);
 static void MX_USART1_Init(void);
 /* USER CODE BEGIN PFP */
 
-static void CreateTx_Frame(uint8_t *frame, uint8_t counter, float pressure, float temperature, uint8_t status_raw);
-static void put_u32_be(uint8_t *p, uint32_t v);
-static void put_f32_be(uint8_t *p, float f);
-
+static void CreateTx_Frame(uint8_t *frame, uint8_t sensorid, cc1101_tx_power power, uint8_t counter, float pressure, float temperature, uint8_t status_raw);
+static void Float_to_Bytearray(uint8_t p[4], float f);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -165,29 +167,24 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-
 	//APB2 Read
 	abp2status = ABP2_ReadAll(&abp2, &abp2_pressure, &abp2_temperature, &abp2status_raw);
-	CreateTx_Frame(tx_fifo, counter, abp2_pressure, abp2_temperature, abp2status_raw);
-	counter++;
 
 
-	//CC1101 Send with 10dB
-	CC1101_Set_Tx_power(&cc1101, CC1101_TX_10dB);
-	CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
-	CC1101_read_Patable(&cc1101, pa_table);
-	tx_timer = CC1101_SendTx(&cc1101);
+	//CC1101 Send with all power levels
+	for(i = 0; i < sizeof(cc1101_tx_power); i++)
+	{
+		CC1101_Set_Tx_power(&cc1101, cc1101_power_ramp[i]);
+		CreateTx_Frame(tx_fifo, sensorid, cc1101_power_ramp[i], counter, abp2_pressure, abp2_temperature, abp2status_raw);
+		CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
+		CC1101_read_Patable(&cc1101, pa_table);
+		tx_timer = CC1101_SendTx(&cc1101);
 
-	HAL_Delay(1000);
-
-	//CC1101 Send with -30dB
-	CC1101_Set_Tx_power(&cc1101, CC1101_TX_M30dB);
-	CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
-	CC1101_read_Patable(&cc1101, pa_table);
-	tx_timer = CC1101_SendTx(&cc1101);
-
+		HAL_Delay(1000);
+	}
 
 	// Status read out
+	counter++;
 	CC1101_read_marcstate(&cc1101, &marcstate);
 	CC1101_read_status(&cc1101, CC1101_STATUS_FREQEST, &freq_offset);
 
@@ -430,29 +427,28 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-static void CreateTx_Frame(uint8_t *frame, uint8_t counter, float pressure, float temperature, uint8_t status_raw)
+static void CreateTx_Frame(uint8_t *frame, uint8_t sensorid, cc1101_tx_power power, uint8_t counter, float pressure, float temperature, uint8_t status_raw)
 {
     uint8_t i = 1;
-    frame[i++] = counter;                    		//add alive counter
-    frame[i++] = status_raw;                   		//add sensor status
-    put_f32_be(&frame[i], pressure);   i += 4;		//add pressure as uint32
-    put_f32_be(&frame[i], temperature);i += 4;		//add temperature as uint32
-    frame[0] = i-1;									//add frame length as first byte
+    frame[i++] = sensorid;
+    frame[i++] = power;										//add send power
+    frame[i++] = counter;                    				//add alive counter
+    frame[i++] = status_raw;                   				//add sensor status
+    Float_to_Bytearray(&frame[i], pressure);   i += 4;		//add pressure as uint32
+    Float_to_Bytearray(&frame[i], temperature);i += 4;		//add temperature as uint32
+    frame[0] = i-1;											//add frame length as first byte
 }
 
-static void put_u32_be(uint8_t *p, uint32_t v)
-{
-    p[0] = (uint8_t)(v >> 24);
-    p[1] = (uint8_t)(v >> 16);
-    p[2] = (uint8_t)(v >>  8);
-    p[3] = (uint8_t)(v >>  0);
-}
-
-static void put_f32_be(uint8_t *p, float f)
+static void Float_to_Bytearray(uint8_t p[4], float f)
 {
     uint32_t u;
-    memcpy(&u, &f, sizeof(u));  // float-Bits unverändert übernehmen
-    put_u32_be(p, u);           // in BE anordnen
+    //Float to U32
+    memcpy(&u, &f, sizeof u);
+    //U32 to Byte Array
+    p[0] = (uint8_t)(u >> 24);
+    p[1] = (uint8_t)(u >> 16);
+    p[2] = (uint8_t)(u >>  8);
+    p[3] = (uint8_t)(u >>  0);
 }
 
 /* USER CODE END 4 */
