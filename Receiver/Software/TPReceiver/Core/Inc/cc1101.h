@@ -24,7 +24,7 @@ typedef enum {
 	CC1101_STROBE_SXOFF =	 	0x32,	//Turn off crystal osszilator
 	CC1101_STROBE_SCAL	= 	 	0x33,	//Calibrate frequency synthesizer and turn it off. SCAL can be strobed from IDLE mode without setting manual calibration mode (MCSM0.FS_AUTOCAL=0)
 	CC1101_STROBE_SRX =     	0x34,	//Enable RX. Perform calibration first if coming from IDLE and MCSM0.FS_AUTOCAL=1.
-	CC1101_STROBE_STX =	 	0x35,	//In IDLE state: Enable TX. Perform calibration first if MCSM0.FS_AUTOCAL=1. If in RX state and CCA is enabled: Only go to TX if channel is clear.
+	CC1101_STROBE_STX =	 		0x35,	//In IDLE state: Enable TX. Perform calibration first if MCSM0.FS_AUTOCAL=1. If in RX state and CCA is enabled: Only go to TX if channel is clear.
 	CC1101_STROBE_SIDLE =   	0x36,	//Exit RX / TX, turn off frequency synthesizer and exit Wake-On-Radio mode if applicable.
 	CC1101_STROBE_SWOR	=	 	0x38,	//Start automatic RX polling sequence (Wake-on-Radio) as described in Section 19.5 if WORCTRL.RC_PD=0.
 	CC1101_STROBE_SPWD	=	 	0x39,	//Enter power down mode when CSn goes high.
@@ -202,7 +202,9 @@ void CC1101_Apply433_38k4(cc1101_t *dev);
 
 //Rx Methods
 void CC1101_EnterRx(cc1101_t *dev);
+void CC1101_Recover_RX_Overflow(cc1101_t *dev);
 void CC1101_Set_Rx_threshold(cc1101_t *dev, c1101_rx_threshold val);
+int16_t CC1101_Convert_RSSI(uint8_t rssi_raw);
 void CC1101_Get_RSSI(cc1101_t *dev, int16_t *rssi);
 
 //Tx Methods

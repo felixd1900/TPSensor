@@ -1,15 +1,7 @@
 #include "sensor_map.h"
 #include <string.h>
 
-sensor_map_t sensors[SENSORS_MAX];
-
-void sensors_init(void)
-{
-	// reserve memory
-    memset(sensors, 0, sizeof sensors);
-}
-
-static int sensors_find_index(uint8_t sensor_id)
+static int sensors_find_index(sensor_map_t *sensors, uint8_t sensor_id)
 {
 	// find index of sensor, return -1 if sensor does not exist
     for (int i = 0; i < SENSORS_MAX; i++) {
@@ -19,7 +11,7 @@ static int sensors_find_index(uint8_t sensor_id)
     return -1;
 }
 
-static int sensors_find_slot(void)
+static int sensors_find_slot(sensor_map_t *sensors)
 {
 	// find free slot in reserved memory, if no more slot is left return -1
     for (int i = 0; i < SENSORS_MAX; i++) {
@@ -28,7 +20,7 @@ static int sensors_find_slot(void)
     return -1;
 }
 
-uint32_t sensors_get_count(void)
+uint32_t sensors_get_count(sensor_map_t *sensors)
 {
 	// get count of active sensors
     uint32_t n = 0;
@@ -36,21 +28,21 @@ uint32_t sensors_get_count(void)
     return n;
 }
 
-sensor_data* sensors_get_sensor(uint8_t sensor_id)
+sensor_data* sensors_get_sensor(sensor_map_t *sensors, uint8_t sensor_id)
 {
 	// get sensor data by sensor id
-    int ix = sensors_find_index(sensor_id);
+    int ix = sensors_find_index(sensors, sensor_id);
     if (ix < 0) return NULL;
     return &sensors[ix].data;
 }
 
-void sensors_set_sensor(sensor_data sensor_new)
+void sensors_set_sensor(sensor_map_t *sensors, sensor_data sensor_new)
 {
 	// update last sensor values, or create sensor in map if sensor does not already exist
-    int ix = sensors_find_index(sensor_new.sensor_id);
+    int ix = sensors_find_index(sensors, sensor_new.sensor_id);
     if (ix < 0)
     {
-        ix = sensors_find_slot();
+        ix = sensors_find_slot(sensors);
         if (ix >= 0)
         {
             sensors[ix].used = true;
@@ -69,7 +61,7 @@ void sensors_set_sensor(sensor_data sensor_new)
     s->last_seen_ms         = HAL_GetTick();
 }
 
-void sensors_clear_timeout(uint32_t now_ms, uint32_t timeout_ms)
+void sensors_clear_timeout(sensor_map_t *sensors, uint32_t now_ms, uint32_t timeout_ms)
 {
     for (int i = 0; i < SENSORS_MAX; i++) {
         if (sensors[i].used) {

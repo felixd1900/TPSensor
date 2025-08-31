@@ -32,6 +32,26 @@ static c1101_status_word convert_status(uint8_t status_byte)
 	return status;
 }
 
+static uint32_t wait_for_state(cc1101_t *dev, cc1101_marc_state state_new)
+{
+	cc1101_marc_state state = CC1101_MARC_SLEEP;
+	uint32_t timer_start = HAL_GetTick();
+
+	//wait for state to return to idle after sending fifo
+	while(1)
+	{
+		CC1101_read_marcstate(dev, &state);
+		if((state == state_new) | ((HAL_GetTick() - timer_start) > 200))
+		{
+			return (HAL_GetTick() - timer_start);
+		}
+		else
+		{
+			HAL_Delay(1);
+		}
+	}
+}
+
 
 //===================================Register==========================================
 void CC1101_write_register(cc1101_t *dev, cc1101_register addr, uint8_t val)
@@ -252,8 +272,18 @@ void CC1101_Apply433_38k4(cc1101_t *dev)
 void CC1101_EnterRx(cc1101_t *dev)
 {
 	CC1101_write_strobe(dev, CC1101_STROBE_SIDLE);
+	wait_for_state(dev, CC1101_MARC_IDLE);
 	CC1101_write_strobe(dev, CC1101_STROBE_SFRX);  // clear RX FIFO
 	CC1101_write_strobe(dev, CC1101_STROBE_SRX);
+	wait_for_state(dev, CC1101_MARC_RX);
+}
+
+void CC1101_Recover_RX_Overflow(cc1101_t *dev)
+{
+	CC1101_write_strobe(dev, CC1101_STROBE_SFRX);  // clear RX FIFO
+	wait_for_state(dev, CC1101_MARC_IDLE);
+	CC1101_write_strobe(dev, CC1101_STROBE_SRX);
+	wait_for_state(dev, CC1101_MARC_RX);
 }
 
 void CC1101_Set_Rx_threshold(cc1101_t *dev, c1101_rx_threshold val)
@@ -263,25 +293,32 @@ void CC1101_Set_Rx_threshold(cc1101_t *dev, c1101_rx_threshold val)
 	CC1101_write_register(dev, CC1101_REG_FIFOTHR, (fifothr | val));
 }
 
+int16_t CC1101_Convert_RSSI(uint8_t rssi_raw)
+{
+	int16_t rssi = 0;
+	if(rssi_raw < 128)
+	{
+		rssi = rssi_raw / 2 - CC1101_RSSI_OFFSET;
+	}
+	else
+	{
+		rssi = (rssi_raw - 256) / 2 - CC1101_RSSI_OFFSET;
+	}
+	return rssi;
+}
+
 void CC1101_Get_RSSI(cc1101_t *dev, int16_t *rssi)
 {
 	uint8_t rssi_raw = 0;
 	CC1101_read_status(dev, CC1101_STATUS_RSSI, &rssi_raw);
-
-	if(rssi_raw < 128)
-	{
-		*rssi = rssi_raw / 2 - CC1101_RSSI_OFFSET;
-	}
-	else
-	{
-		*rssi = (rssi_raw - 256) / 2 - CC1101_RSSI_OFFSET;
-	}
+	*rssi = CC1101_Convert_RSSI(rssi_raw);
 }
 
 //===============================TX Methods================================
 void CC1101_PrepareTx(cc1101_t *dev)
 {
 	CC1101_write_strobe(dev, CC1101_STROBE_SIDLE);
+	wait_for_state(dev, CC1101_MARC_IDLE);
 	CC1101_write_strobe(dev, CC1101_STROBE_SFTX);  // clear TX FIFO
 }
 
@@ -295,21 +332,6 @@ void CC1101_Set_Tx_power(cc1101_t *dev, cc1101_tx_power power)
 uint32_t CC1101_SendTx(cc1101_t *dev)
 {
 	//expected state when starting is idle
-	CC1101_write_strobe(dev, CC1101_STROBE_STX);  // send Tx FIFO
-	cc1101_marc_state state = CC1101_MARC_SLEEP;
-	uint32_t timer_start = HAL_GetTick();
-
-	//wait for state to return to idle after sending fifo
-	while(1)
-	{
-		CC1101_read_marcstate(dev, &state);
-		if((state == CC1101_MARC_IDLE) | ((HAL_GetTick() - timer_start) > 200))
-		{
-			return (HAL_GetTick() - timer_start);
-		}
-		else
-		{
-			HAL_Delay(1);
-		}
-	}
+	CC1101_write_strobe(dev, CC1101_STROBE_STX);  			// send Tx FIFO
+	return wait_for_state(dev, CC1101_MARC_IDLE);			//wait to return to idle state
 }

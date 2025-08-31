@@ -1,7 +1,9 @@
-../Core/Src/main.c:92:5:main	8	static
-../Core/Src/main.c:181:6:SystemClock_Config	128	static
-../Core/Src/main.c:231:13:MX_SPI1_Init	8	static
-../Core/Src/main.c:269:13:MX_GPIO_Init	48	static
-../Core/Src/main.c:308:13:ParseRx_Frame	32	static
-../Core/Src/main.c:322:13:Bytearray_to_Float	24	static
-../Core/Src/main.c:338:6:Error_Handler	8	static,ignoring_inline_asm
+../Core/Src/main.c:94:6:HAL_GPIO_EXTI_Callback	16	static
+../Core/Src/main.c:110:5:main	8	static
+../Core/Src/main.c:187:6:SystemClock_Config	128	static
+../Core/Src/main.c:237:13:MX_SPI1_Init	8	static
+../Core/Src/main.c:275:13:MX_GPIO_Init	48	static
+../Core/Src/main.c:324:13:ReadRx	32	static
+../Core/Src/main.c:354:13:ParseRx_Frame	32	static
+../Core/Src/main.c:370:13:Bytearray_to_Float	24	static
+../Core/Src/main.c:386:6:Error_Handler	8	static,ignoring_inline_asm

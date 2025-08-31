@@ -29,14 +29,17 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
-
-
-
+typedef enum {
+	PRO_CMD_SENSORID = 		0x01,
+	PRO_CMD_TEST = 			0x02
+} pro_cmd;
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
+#define EXPECTED_BYTES	15	//bytes send +2 (rssi and lqi)
 
 /* USER CODE END PD */
 
@@ -52,20 +55,24 @@ SPI_HandleTypeDef hspi1;
 
 cc1101_t cc1101;
 
-//Debug variables
+cc1101_marc_state marcstate = CC1101_MARC_SLEEP;
+uint8_t rx_bytes = 0xFF;
+uint8_t rx[EXPECTED_BYTES] = {0};
+
+sensor_data sensor_received;
+sensor_map_t sensor_map[SENSORS_MAX];
+
+bool Init_complete = false;
+
+//===========Debug variables==============
 uint8_t status_part = 0;
 uint8_t status_ver = 0;
-uint8_t expected_bytes = 13;
-
 
 uint8_t  reg_all_before[46] = {0};
 uint8_t  reg_all_after[46] = {0};
 
-cc1101_marc_state marcstate = CC1101_MARC_SLEEP;
-uint8_t rx_bytes = 0xFF;
-uint8_t rx[20] = {0};
-
-
+uint8_t tx_fifo[3] = {0x02, PRO_CMD_SENSORID, 0x00};
+uint8_t tx_counter = 0x01;
 
 /* USER CODE END PV */
 
@@ -75,13 +82,24 @@ static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 /* USER CODE BEGIN PFP */
 
+static void ReadRx(void);
 static void ParseRx_Frame(uint8_t *frame, sensor_data *val);
-static void Bytearray_to_Float(uint8_t p[4], float *val);
+static void Bytearray_to_Float(uint8_t *p, float *val);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	if (Init_complete)
+	{
+		//CC1101 complete package received
+		//ReadRx();
+		//HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
+	}
+}
 
 /* USER CODE END 0 */
 
@@ -134,8 +152,13 @@ int main(void)
   CC1101_Set_Rx_threshold(&cc1101, CC1101_RX_0dB);
 
   // CC1101 Start Rx
-  CC1101_EnterRx(&cc1101);
+  //CC1101_EnterRx(&cc1101);
 
+  //programming mode test
+  CC1101_PrepareTx(&cc1101);
+
+  CC1101_Set_Tx_power(&cc1101, CC1101_TX_10dB);
+  Init_complete = true;
 
   /* USER CODE END 2 */
 
@@ -146,30 +169,13 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
-	//CC1101 Read RX Bytes
-	CC1101_read_status(&cc1101, CC1101_STATUS_RXBYTES, &rx_bytes);
 	CC1101_read_marcstate(&cc1101, &marcstate);
-
-	CC1101_read_RX_FIFO(&cc1101, rx, rx_bytes);
-
-	if ((rx_bytes % expected_bytes == 0) & (rx_bytes > 0))
-	{
-		CC1101_read_RX_FIFO(&cc1101, rx, rx_bytes);
-
-
-		//indicate byte read
-		HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
-	}
-	else if (rx_bytes > expected_bytes)
-	{
-		//CC1101_write_strobe(&cc1101, CC1101_STROBE_SFRX);  // clear RX FIFO
-	}
-
-	//Loop timing and debug led
-	//HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
-	HAL_Delay(2);
-
+	tx_fifo[2] = tx_counter;
+	CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
+	CC1101_SendTx(&cc1101);
+	HAL_Delay(2000);
+	tx_counter++;
+	HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
   }
   /* USER CODE END 3 */
 }
@@ -284,6 +290,12 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(Debug_LED_GPIO_Port, Debug_LED_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin : RX_IRQ_Pin */
+  GPIO_InitStruct.Pin = RX_IRQ_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(RX_IRQ_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pin : SPI1_CS_Pin */
   GPIO_InitStruct.Pin = SPI1_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -298,6 +310,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(Debug_LED_GPIO_Port, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_1_IRQn);
+
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
   /* USER CODE END MX_GPIO_Init_2 */
@@ -305,28 +321,60 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+static void ReadRx(void)
+{
+	//CC1101 RX Status
+	CC1101_read_status(&cc1101, CC1101_STATUS_RXBYTES, &rx_bytes);
+	CC1101_read_marcstate(&cc1101, &marcstate);
+
+
+	if ((rx_bytes > 0) & (marcstate == CC1101_MARC_RX))
+	{
+		if (rx_bytes % EXPECTED_BYTES == 0)
+		{
+			for (int i = 0; i < (rx_bytes / EXPECTED_BYTES); i++)
+			{
+				//read all packets received (only if fifo is not read in between)
+				CC1101_read_RX_FIFO(&cc1101, rx, rx_bytes);
+				ParseRx_Frame(rx, &sensor_received);
+				sensors_set_sensor(sensor_map, sensor_received);
+			}
+		}
+		else if (rx_bytes > EXPECTED_BYTES)
+		{
+			CC1101_EnterRx(&cc1101);	//flushing fifo in RX state is not possible, so flush in idle state
+		}
+		else if (marcstate == CC1101_MARC_RXFIFO_OVERFLOW)
+		{
+			CC1101_Recover_RX_Overflow(&cc1101);		//goning to idle is only allowed via flushing rx fifo
+		}
+	}
+}
+
 static void ParseRx_Frame(uint8_t *frame, sensor_data *val)
 {
-	//Frame length is automatically deleted when reading frame
-    uint8_t i = 0;
-    val->sensor_id = frame[i++];										//get sensorid
+	//skip byte 1, since frame length is no data
+    uint8_t i = 1;
+    val->sensor_id = frame[i++];									//get sensorid
     val->power = frame[i++];										//get tx power stage
     val->counter = frame[i++];                    					//get alive counter
     val->abp2_status_raw = frame[i++];								//get sensor status
 
-    Bytearray_to_Float(frame[i], &val->abp2_pressure);				//get pressure as uint32
+    Bytearray_to_Float(&frame[i], &val->abp2_pressure);				//get pressure as uint32
     i += 4;
-    Bytearray_to_Float(frame[i], &val->abp2_temperature);			//get temperature as uint32
+    Bytearray_to_Float(&frame[i], &val->abp2_temperature);			//get temperature as uint32
+    i += 4;
+    val->rssi = CC1101_Convert_RSSI(frame[i++]);
 }
 
-static void Bytearray_to_Float(uint8_t p[4], float *val)
+static void Bytearray_to_Float(uint8_t *p, float *val)
 {
     uint32_t u = ((uint32_t)p[0] << 24) |
                  ((uint32_t)p[1] << 16) |
                  ((uint32_t)p[2] <<  8) |
                  ((uint32_t)p[3] <<  0);
 
-    memcpy(val, &u, sizeof(val));
+    memcpy(val, &u, sizeof(u));
 }
 
 /* USER CODE END 4 */

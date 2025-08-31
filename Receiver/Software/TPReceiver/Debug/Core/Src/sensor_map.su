@@ -1,7 +1,6 @@
-../Core/Src/sensor_map.c:6:6:sensors_init	8	static
-../Core/Src/sensor_map.c:12:12:sensors_find_index	24	static
-../Core/Src/sensor_map.c:22:12:sensors_find_slot	16	static
-../Core/Src/sensor_map.c:31:10:sensors_get_count	16	static
-../Core/Src/sensor_map.c:39:14:sensors_get_sensor	24	static
-../Core/Src/sensor_map.c:47:6:sensors_set_sensor	24	static
-../Core/Src/sensor_map.c:72:6:sensors_clear_timeout	24	static
+../Core/Src/sensor_map.c:4:12:sensors_find_index	24	static
+../Core/Src/sensor_map.c:14:12:sensors_find_slot	24	static
+../Core/Src/sensor_map.c:23:10:sensors_get_count	24	static
+../Core/Src/sensor_map.c:31:14:sensors_get_sensor	24	static
+../Core/Src/sensor_map.c:39:6:sensors_set_sensor	32	static
+../Core/Src/sensor_map.c:64:6:sensors_clear_timeout	32	static

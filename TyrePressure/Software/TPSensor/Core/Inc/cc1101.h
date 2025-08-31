@@ -202,7 +202,9 @@ void CC1101_Apply433_38k4(cc1101_t *dev);
 
 //Rx Methods
 void CC1101_EnterRx(cc1101_t *dev);
+void CC1101_Recover_RX_Overflow(cc1101_t *dev);
 void CC1101_Set_Rx_threshold(cc1101_t *dev, c1101_rx_threshold val);
+int16_t CC1101_Convert_RSSI(uint8_t rssi_raw);
 void CC1101_Get_RSSI(cc1101_t *dev, int16_t *rssi);
 
 //Tx Methods

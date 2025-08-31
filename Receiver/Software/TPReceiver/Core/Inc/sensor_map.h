@@ -8,7 +8,7 @@
 #include "main.h"
 #include "cc1101.h"
 
-#define SENSORS_MAX 16       // define blocked memory size
+#define SENSORS_MAX 10       // define blocked memory size
 
 typedef enum {
 	NONE =			0x00,
@@ -36,15 +36,12 @@ typedef struct {
 } sensor_map_t;
 
 
-void        sensors_init(void);
-uint32_t    sensors_count(void);
+uint32_t    sensors_count(sensor_map_t *sensors);
 
-sensor_data* sensors_get_sensor(uint8_t sensor_id);
-void sensors_set_sensor(sensor_data sensor_new);
+sensor_data* sensors_get_sensor(sensor_map_t *sensors, uint8_t sensor_id);
+void sensors_set_sensor(sensor_map_t *sensors, sensor_data sensor_new);
 
-void sensors_clear_timeout(uint32_t now_ms, uint32_t timeout_ms);
+void sensors_clear_timeout(sensor_map_t *sensors, uint32_t now_ms, uint32_t timeout_ms);
 
-// direkter Zugriff (z. B. fürs Debug-Fenster)
-extern sensor_map_t g_sensors[SENSORS_MAX];
 
 #endif /* INC_SENSOR_MAP_H_ */
