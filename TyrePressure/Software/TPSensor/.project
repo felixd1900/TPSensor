@@ -81,16 +81,6 @@
 			<locationURI>PARENT-8-PROJECT_LOC/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_i2c_ex.c</locationURI>
 		</link>
 		<link>
-			<name>Drivers/STM32L0xx_HAL_Driver/stm32l0xx_hal_pcd.c</name>
-			<type>1</type>
-			<locationURI>PARENT-8-PROJECT_LOC/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_pcd.c</locationURI>
-		</link>
-		<link>
-			<name>Drivers/STM32L0xx_HAL_Driver/stm32l0xx_hal_pcd_ex.c</name>
-			<type>1</type>
-			<locationURI>PARENT-8-PROJECT_LOC/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_pcd_ex.c</locationURI>
-		</link>
-		<link>
 			<name>Drivers/STM32L0xx_HAL_Driver/stm32l0xx_hal_pwr.c</name>
 			<type>1</type>
 			<locationURI>PARENT-8-PROJECT_LOC/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_pwr.c</locationURI>
@@ -113,12 +103,12 @@
 		<link>
 			<name>Drivers/STM32L0xx_HAL_Driver/stm32l0xx_hal_rtc.c</name>
 			<type>1</type>
-			<locationURI>PARENT-5-PROJECT_LOC/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_rtc.c</locationURI>
+			<locationURI>PARENT-8-PROJECT_LOC/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_rtc.c</locationURI>
 		</link>
 		<link>
 			<name>Drivers/STM32L0xx_HAL_Driver/stm32l0xx_hal_rtc_ex.c</name>
 			<type>1</type>
-			<locationURI>PARENT-5-PROJECT_LOC/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_rtc_ex.c</locationURI>
+			<locationURI>PARENT-8-PROJECT_LOC/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_rtc_ex.c</locationURI>
 		</link>
 		<link>
 			<name>Drivers/STM32L0xx_HAL_Driver/stm32l0xx_hal_spi.c</name>
@@ -128,42 +118,12 @@
 		<link>
 			<name>Drivers/STM32L0xx_HAL_Driver/stm32l0xx_hal_tim.c</name>
 			<type>1</type>
-			<locationURI>PARENT-5-PROJECT_LOC/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_tim.c</locationURI>
+			<locationURI>PARENT-8-PROJECT_LOC/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_tim.c</locationURI>
 		</link>
 		<link>
 			<name>Drivers/STM32L0xx_HAL_Driver/stm32l0xx_hal_tim_ex.c</name>
 			<type>1</type>
-			<locationURI>PARENT-5-PROJECT_LOC/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_tim_ex.c</locationURI>
-		</link>
-		<link>
-			<name>Drivers/STM32L0xx_HAL_Driver/stm32l0xx_hal_usart.c</name>
-			<type>1</type>
-			<locationURI>PARENT-8-PROJECT_LOC/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_usart.c</locationURI>
-		</link>
-		<link>
-			<name>Drivers/STM32L0xx_HAL_Driver/stm32l0xx_ll_usb.c</name>
-			<type>1</type>
-			<locationURI>PARENT-8-PROJECT_LOC/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Src/stm32l0xx_ll_usb.c</locationURI>
-		</link>
-		<link>
-			<name>Middlewares/USB_Device_Library/usbd_cdc.c</name>
-			<type>1</type>
-			<locationURI>PARENT-8-PROJECT_LOC/ST/Repository/STM32Cube_FW_L0_V1.12.3/Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Src/usbd_cdc.c</locationURI>
-		</link>
-		<link>
-			<name>Middlewares/USB_Device_Library/usbd_core.c</name>
-			<type>1</type>
-			<locationURI>PARENT-8-PROJECT_LOC/ST/Repository/STM32Cube_FW_L0_V1.12.3/Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_core.c</locationURI>
-		</link>
-		<link>
-			<name>Middlewares/USB_Device_Library/usbd_ctlreq.c</name>
-			<type>1</type>
-			<locationURI>PARENT-8-PROJECT_LOC/ST/Repository/STM32Cube_FW_L0_V1.12.3/Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ctlreq.c</locationURI>
-		</link>
-		<link>
-			<name>Middlewares/USB_Device_Library/usbd_ioreq.c</name>
-			<type>1</type>
-			<locationURI>PARENT-8-PROJECT_LOC/ST/Repository/STM32Cube_FW_L0_V1.12.3/Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ioreq.c</locationURI>
+			<locationURI>PARENT-8-PROJECT_LOC/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_tim_ex.c</locationURI>
 		</link>
 	</linkedResources>
 </projectDescription>

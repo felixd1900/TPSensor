@@ -18,7 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -65,6 +64,7 @@ typedef struct {
     float alpha;        // smaller value -> more smoothing
 } ema_t;
 
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -90,16 +90,14 @@ SPI_HandleTypeDef hspi1;
 TIM_HandleTypeDef htim21;
 TIM_HandleTypeDef htim22;
 
-USART_HandleTypeDef husart1;
-
 /* USER CODE BEGIN PV */
 
 //===========Programmable variables========
 uint8_t sensorid = 0x10;				//this is the default sensorid the current id is stored in eeprom
 uint8_t sensortype = 0x01;				//0x01 = tyre pressure | 0x02 = brake disk pressure (to be implemented)
-float trans_press_thresh1 = 0.97;		//move from storage into transient mode
-float trans_press_thresh2 = 0.95;		//move from transient mode into storage mode
-float trans_press_change = 0.02;		//minimum pressure change to move to transient mode
+float trans_press_thresh1 = 1.1;		//move from storage into transient mode
+float trans_press_thresh2 = 1.0;		//move from transient mode into storage mode
+float trans_press_change = 0.0;			//minimum pressure change to move to transient mode
 uint32_t storage_time_sample = 5000;	//sample rate tx (ms) in transient mode
 uint32_t trans_time_tx = 1000;			//sample rate tx (ms) in transient mode
 uint32_t trans_time_sample = 100;		//sample rate abp2 read (ms) in transient mode
@@ -108,8 +106,8 @@ uint32_t static_time_sample = 100;		//sample rate abp2 read (ms) in transient mo
 
 //==============Gereral variables==========
 pro_mode_t programming_mode = PRO_MODE_OPERATION;
-op_mode_t operational_mode = OP_MODE_STORAGE;
-op_mode_t operational_mode_old = OP_MODE_STORAGE;
+op_mode_t operational_mode = OP_MODE_TRANSIENT;
+op_mode_t operational_mode_old = OP_MODE_TRANSIENT;
 bool pro_mode_changed = false;
 bool op_mode_changed = false;
 ema_t ema_pressure = {0, 0.5};
@@ -159,12 +157,12 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_SPI1_Init(void);
-static void MX_USART1_Init(void);
 static void MX_RTC_Init(void);
 static void MX_TIM21_Init(void);
 static void MX_TIM22_Init(void);
 /* USER CODE BEGIN PFP */
 
+static float ema_push(ema_t *f, float val);
 static uint8_t EE_ReadU8(ee_offset_t offset);
 static void EE_WriteU8(ee_offset_t offset, uint8_t val);
 static void Write_Programming(pro_cmd_t cmd, uint8_t data);
@@ -189,7 +187,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 		else if (GPIO_Pin == RX_IRQ_Pin)
 		{
-			rx_received = true;
+			//rx_received = true;
 		}
 	}
 }
@@ -201,10 +199,10 @@ void HAL_RTCEx_WakeUpTimerEventCallback(RTC_HandleTypeDef *hrtc)
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    if (htim->Instance == TIM21) {
+    if (htim == &htim21) {
         abp2_sample_ready = true;      // nur Flag setzen
     }
-    else if (htim->Instance == TIM22)
+    else if (htim == &htim22)
     {
     	tx_ready = true;
     }
@@ -243,12 +241,13 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C1_Init();
   MX_SPI1_Init();
-  MX_USART1_Init();
-  MX_USB_DEVICE_Init();
   MX_RTC_Init();
   MX_TIM21_Init();
   MX_TIM22_Init();
   /* USER CODE BEGIN 2 */
+
+  //Start Timers
+  HAL_TIM_Base_Start_IT(&htim21);
 
 
   // ABP2 Init (Address 0x28)
@@ -301,7 +300,7 @@ int main(void)
 	//=================================Operating Mode============================================
 	op_mode_changed = (operational_mode_old != operational_mode);
 	operational_mode_old = operational_mode;
-	abp2_pressure_change = fabs(abp2_pressure - ema_pressure.y);
+	abp2_pressure_change = 0;//fabs(abp2_pressure - ema_pressure.y);
 
 	if (programming_mode == PRO_MODE_OPERATION)
 	{
@@ -311,14 +310,19 @@ int main(void)
 		{
 		case OP_MODE_STORAGE:			// Operation Mode read sensor data & send data
 
-			abp2status = ABP2_ReadAll(&abp2, &abp2_pressure, &abp2_temperature, &abp2status_raw);
-			//DeepSleep(5);
-			HAL_Delay(2000);	//Remove with stop mode, and wake up with
+			if (true)		// abp2_sample_ready
+			{
+				abp2status = ABP2_ReadAll(&abp2, &abp2_pressure, &abp2_temperature, &abp2status_raw);
+				ema_push(&ema_pressure, abp2_pressure);
+				//DeepSleep(5);
+				HAL_Delay(2000);	//Remove with stop mode, and wake up with
+				debug_timer_tick = __HAL_TIM_GET_COUNTER(&htim21);
+			}
 
 			// Condition change
 			if (abp2_pressure > trans_press_thresh1)
 			{
-				if (abp2_press_change > trans_press_change)
+				if (abp2_pressure_change > trans_press_change)
 				{
 					operational_mode = OP_MODE_TRANSIENT;
 				}
@@ -327,12 +331,14 @@ int main(void)
 					operational_mode = OP_MODE_STATIC;
 				}
 			}
+			break;
 
 		case OP_MODE_TRANSIENT:
 
 			if (abp2_sample_ready)
 			{
 				abp2status = ABP2_ReadAll(&abp2, &abp2_pressure, &abp2_temperature, &abp2status_raw);
+				ema_push(&ema_pressure, abp2_pressure);
 				abp2_sample_ready = false;
 				//start new timer
 			}
@@ -341,13 +347,13 @@ int main(void)
 			{
 				CC1101_PrepareTx(&cc1101);
 				Send_Data();
-				CC1101_EnterSleep(&cc1101);
+				//CC1101_EnterSleep(&cc1101);
 				tx_ready = false;
 				//start new timer
 			}
 
 			//Condition change
-			if (abp2_press_change > trans_press_change)
+			if (abp2_pressure_change > trans_press_change)
 			{
 				operational_mode = OP_MODE_TRANSIENT;
 			}
@@ -355,15 +361,25 @@ int main(void)
 			{
 				operational_mode = OP_MODE_STORAGE;
 			}
+			break;
 
 
 		case OP_MODE_STATIC:
 
-			abp2status = ABP2_ReadAll(&abp2, &abp2_pressure, &abp2_temperature, &abp2status_raw);
-			Send_Data();
+			if (abp2_sample_ready)
+			{
+				abp2status = ABP2_ReadAll(&abp2, &abp2_pressure, &abp2_temperature, &abp2status_raw);
+				abp2_sample_ready = false;
+			}
+
+			if (tx_ready)
+			{
+				Send_Data();
+				tx_ready = false;
+			}
 
 			//Condition change
-			if (abp2_press_change > trans_press_change)
+			if (abp2_pressure_change > trans_press_change)
 			{
 				operational_mode = OP_MODE_TRANSIENT;
 			}
@@ -371,7 +387,10 @@ int main(void)
 			{
 				operational_mode = OP_MODE_STORAGE;
 			}
+			break;
 		}
+
+
 	}
 
 	else if ((programming_mode == PRO_MODE_PROGRAMMING) & rx_received)		//
@@ -381,7 +400,7 @@ int main(void)
 		rx_received = false;
 	}
 	//Loop Indication & Delay
-
+	HAL_Delay(200);
 	HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
 
   }
@@ -431,12 +450,9 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1|RCC_PERIPHCLK_I2C1
-                              |RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_USB;
-  PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK2;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_I2C1|RCC_PERIPHCLK_RTC;
   PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_PCLK1;
   PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
-  PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_PLL;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
@@ -690,40 +706,6 @@ static void MX_TIM22_Init(void)
 }
 
 /**
-  * @brief USART1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART1_Init(void)
-{
-
-  /* USER CODE BEGIN USART1_Init 0 */
-
-  /* USER CODE END USART1_Init 0 */
-
-  /* USER CODE BEGIN USART1_Init 1 */
-
-  /* USER CODE END USART1_Init 1 */
-  husart1.Instance = USART1;
-  husart1.Init.BaudRate = 115200;
-  husart1.Init.WordLength = USART_WORDLENGTH_8B;
-  husart1.Init.StopBits = USART_STOPBITS_1;
-  husart1.Init.Parity = USART_PARITY_NONE;
-  husart1.Init.Mode = USART_MODE_TX_RX;
-  husart1.Init.CLKPolarity = USART_POLARITY_LOW;
-  husart1.Init.CLKPhase = USART_PHASE_1EDGE;
-  husart1.Init.CLKLastBit = USART_LASTBIT_DISABLE;
-  if (HAL_USART_Init(&husart1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART1_Init 2 */
-
-  /* USER CODE END USART1_Init 2 */
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -910,10 +892,10 @@ static void Send_Data(void)		//Variables are defined at start to be used for deb
 	//CC1101 Send with all power levels
 	for(int i = 0; i < sizeof(cc1101_power_ramp); i++)
 	{
-		CC1101_Set_Tx_power(&cc1101, cc1101_power_ramp[i]);																		//ramp tx power to test rssi
+		CC1101_Set_Tx_power(&cc1101, cc1101_power_ramp[i]);																						//ramp tx power to test rssi
 		CreateTx_Frame(tx_fifo, cc1101_power_ramp[i], sensortype, sensorid, tx_counter, abp2_pressure, abp2_temperature, abp2status_raw);		//sensorid and power reverse for testing best power
 		CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
-		tx_duration = CC1101_SendTx(&cc1101);																						//send time, depends on data rate
+		tx_duration = CC1101_SendTx(&cc1101);																									//send time, depends on data rate
 	}
 	// Status read out
 	tx_counter++;
@@ -943,6 +925,19 @@ static void Float_to_Bytearray(uint8_t p[4], float f)
     p[1] = (uint8_t)(u >> 16);
     p[2] = (uint8_t)(u >>  8);
     p[3] = (uint8_t)(u >>  0);
+}
+
+
+static void SetTimer(TIM_HandleTypeDef *htim, uint32_t timer_ms)
+{
+	timer_ms = timer_ms - 1;
+
+    __HAL_TIM_DISABLE(htim);                       				// Stop Timer
+    __HAL_TIM_SET_AUTORELOAD(htim, timer_ms);          			// Set Timer period
+    __HAL_TIM_SET_COUNTER(htim, 0);               				// zero counter
+    __HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_UPDATE);  				// remove update flag
+    __HAL_TIM_GENERATE_EVENT(htim, TIM_EVENTSOURCE_UPDATE); 	// latch psc
+    __HAL_TIM_ENABLE(htim);                        				// Restart Timer
 }
 
 /* USER CODE END 4 */
