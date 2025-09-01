@@ -2,7 +2,7 @@
 ../Core/Src/cc1101.c:9:13:cs_low_wait_ready	24	static,ignoring_inline_asm
 ../Core/Src/cc1101.c:20:16:create_header	24	static
 ../Core/Src/cc1101.c:26:26:convert_status	24	static
-../Core/Src/cc1101.c:35:13:wait_for_state	32	static
+../Core/Src/cc1101.c:35:17:wait_for_state	32	static
 ../Core/Src/cc1101.c:57:6:CC1101_write_register	32	static
 ../Core/Src/cc1101.c:69:6:CC1101_write_register_burst	40	static
 ../Core/Src/cc1101.c:81:6:CC1101_read_register	48	static

@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "usb_device.h"
+#include "usbd_cdc_if.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -32,14 +33,14 @@
 typedef enum {
 	PRO_CMD_SENSORID = 		0x01,
 	PRO_CMD_TEST = 			0x02
-} pro_cmd;
+} pro_cmd_t;
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define EXPECTED_BYTES	15	//bytes send +2 (rssi and lqi)
+#define EXPECTED_BYTES	16	//bytes send +2 (rssi and lqi)
 
 /* USER CODE END PD */
 
@@ -74,6 +75,9 @@ uint8_t  reg_all_after[46] = {0};
 uint8_t tx_fifo[3] = {0x02, PRO_CMD_SENSORID, 0x00};
 uint8_t tx_counter = 0x01;
 
+uint8_t usb_counter = 0x00;
+uint8_t usb_buf[8];
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -96,8 +100,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	if (Init_complete)
 	{
 		//CC1101 complete package received
-		//ReadRx();
-		//HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
+		ReadRx();
+		HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
 	}
 }
 
@@ -169,6 +173,14 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
+	//UBS virtual COM test
+	usb_buf[0] = usb_counter;
+	CDC_Transmit_FS(usb_buf, sizeof(usb_buf));
+	usb_counter++;
+	HAL_Delay(1000);
+
+	/* Sensor ID write cmd testing
 	CC1101_read_marcstate(&cc1101, &marcstate);
 	tx_fifo[2] = tx_counter;
 	CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
@@ -176,6 +188,8 @@ int main(void)
 	HAL_Delay(2000);
 	tx_counter++;
 	HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
+	*/
+
   }
   /* USER CODE END 3 */
 }

@@ -199,6 +199,7 @@ void CC1101_read_marcstate(cc1101_t *dev, cc1101_marc_state *state);
 
 // 433,92 MHz, 2-FSK ~38.4 kbps, variable Länge, CRC an, Autocal
 void CC1101_Apply433_38k4(cc1101_t *dev);
+void CC1101_EnterSleep(cc1101_t *dev);
 
 //Rx Methods
 void CC1101_EnterRx(cc1101_t *dev);

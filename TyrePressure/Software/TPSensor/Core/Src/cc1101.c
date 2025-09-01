@@ -268,6 +268,13 @@ void CC1101_Apply433_38k4(cc1101_t *dev)
 	CC1101_write_register(dev, CC1101_REG_TEST0, 0x09);   //Various Test Settings
 }
 
+void CC1101_EnterSleep(cc1101_t *dev)
+{
+	CC1101_write_strobe(dev, CC1101_STROBE_SIDLE);
+	wait_for_state(dev, CC1101_MARC_IDLE);
+	CC1101_write_strobe(dev, CC1101_STROBE_SPWD);  // go to sleep (when CS high)
+}
+
 //===============================RX Methods================================
 void CC1101_EnterRx(cc1101_t *dev)
 {
