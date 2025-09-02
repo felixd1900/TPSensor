@@ -21,6 +21,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "string.h"
+#include "math.h"
 #include "abp2.h"
 #include "cc1101.h"
 /* USER CODE END Includes */
@@ -30,8 +32,19 @@
 
 //address offset in eeprom
 typedef enum {
-	EE_ADDR_SENSORID = 			0x00,
-	EE_ADDR_Test = 				0x01
+	// U8 Values
+	EE_ADDR_SENSOR_ID = 			0x00,
+	EE_ADDR_SENSOR_TYPE = 			0x01,
+	// U32 Values
+	EE_ADDR_STORAGE_SAMPLE =		0x10,
+	EE_ADDR_TRANS_SAMPLE =			0x14,
+	EE_ADDR_TRANS_TX =				0x18,
+	EE_ADDR_STATIC_SAMPLE =			0x1B,
+	EE_ADDR_STATIC_TX =				0x1F,
+	// float
+	EE_ADDR_THRESH1 =				0x30,
+	EE_ADDR_THRESH2 =				0x34,
+	EE_ADDR_CHANGE =				0x38
 }ee_offset_t;
 
 typedef enum {
@@ -71,7 +84,7 @@ typedef struct {
 /* USER CODE BEGIN PD */
 
 #define ABP2_I2C_ID		0x28
-#define EXPECTED_BYTES	5		//length, cmd, uint8 data, lqi, rssi
+#define EXPECTED_BYTES	5		// (cmd string) length, cmd, uint8 data, lqi, rssi
 
 /* USER CODE END PD */
 
@@ -162,15 +175,33 @@ static void MX_TIM21_Init(void);
 static void MX_TIM22_Init(void);
 /* USER CODE BEGIN PFP */
 
-static float ema_push(ema_t *f, float val);
-static uint8_t EE_ReadU8(ee_offset_t offset);
-static void EE_WriteU8(ee_offset_t offset, uint8_t val);
+static uint32_t EE_ADDR(uint32_t off);
+static uint8_t  EE_ReadU8 (uint32_t off);
+static uint32_t EE_ReadU32(uint32_t off);
+static float EE_ReadF32(uint32_t off);
+static void EE_WriteU8(uint32_t off, uint8_t v);
+static void EE_WriteU32(uint32_t off, uint32_t v);
+static void EE_WriteF32(uint32_t off, float f);
+static void Settings_LoadOrInit(bool firstcall);
 static void Write_Programming(pro_cmd_t cmd, uint8_t data);
+
+static float ema_push(ema_t *f, float val);
+static void ema_set_alpha(ema_t *f, float dt_s, float tau_s);
+
+static void SetTimer(TIM_HandleTypeDef *htim, uint32_t timer_ms);
+static void DeepSleep(uint32_t timer_s);
+
+static void Send_Data(float pressure, float temperature);
 static void Read_Programming_CMD(void);
+
 static void Select_Mode(void);
-static void Send_Data(void);
-static void CreateTx_Frame(uint8_t *frame, uint8_t sensorid, uint8_t sensor_type, cc1101_tx_power power, uint8_t counter, float pressure, float temperature, uint8_t status_raw);
+static void CreateTx_DataFrame(uint8_t *frame, uint8_t sensorid, uint8_t sensor_type, cc1101_tx_power power, uint8_t counter, float pressure, float temperature, uint8_t status_raw);
+static void CreateTx_EEPROMFrame(uint8_t *frame);
+
 static void Float_to_Bytearray(uint8_t p[4], float f);
+static void UINT32_to_Bytearray(uint8_t out[4], uint32_t u);
+static uint32_t Float_to_UINT32(float f);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -194,7 +225,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 void HAL_RTCEx_WakeUpTimerEventCallback(RTC_HandleTypeDef *hrtc)
 {
-    //rtc_wakeup_flag = 1;   // ISR kurz halten
+	abp2_sample_ready = true;      // nur Flag setzen
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
@@ -246,14 +277,14 @@ int main(void)
   MX_TIM22_Init();
   /* USER CODE BEGIN 2 */
 
+  Settings_LoadOrInit(true);		//true write first time to eeprom, flase read from eeprom
+
   //Start Timers
   HAL_TIM_Base_Start_IT(&htim21);
-
+  HAL_TIM_Base_Start_IT(&htim22);
 
   // ABP2 Init (Address 0x28)
   ABP2_Init(&abp2, &hi2c1, ABP2_I2C_ID);
-
-
 
   // CC1101 Init
   CC1101_Init(&cc1101, &hspi1, SPI1_CS_GPIO_Port, SPI1_CS_Pin);
@@ -297,16 +328,36 @@ int main(void)
 	    pro_mode_changed = false;
 	}
 
-	//=================================Operating Mode============================================
-	op_mode_changed = (operational_mode_old != operational_mode);
-	operational_mode_old = operational_mode;
-	abp2_pressure_change = 0;//fabs(abp2_pressure - ema_pressure.y);
 
 	if (programming_mode == PRO_MODE_OPERATION)
 	{
 
-		//execute tx/rx code
-		switch (operational_mode)
+
+		//=================================Operating Mode============================================
+		op_mode_changed = (operational_mode_old != operational_mode);
+		operational_mode_old = operational_mode;
+		abp2_pressure_change = 0;//fabs(abp2_pressure - ema_pressure.y);
+
+		if (op_mode_changed)		// Only execute once if mode changes
+		{
+			switch (operational_mode)
+			{
+			case OP_MODE_STORAGE:
+				ema_set_alpha(&ema_pressure, storage_time_sample, storage_time_sample);		//set alpha
+				break;
+
+			case OP_MODE_TRANSIENT:
+				ema_set_alpha(&ema_pressure, trans_time_sample, trans_time_tx);				//set alpha
+				break;
+
+			case OP_MODE_STATIC:
+				ema_set_alpha(&ema_pressure, static_time_sample, static_time_tx);			//set alpha
+				break;
+			}
+		}
+
+
+		switch (operational_mode)		// Execute perodically (induced by timer set above)
 		{
 		case OP_MODE_STORAGE:			// Operation Mode read sensor data & send data
 
@@ -346,10 +397,9 @@ int main(void)
 			if (tx_ready)
 			{
 				CC1101_PrepareTx(&cc1101);
-				Send_Data();
-				//CC1101_EnterSleep(&cc1101);
+				Send_Data(ema_pressure.y, ema_temperature.y);
+				CC1101_EnterSleep(&cc1101);
 				tx_ready = false;
-				//start new timer
 			}
 
 			//Condition change
@@ -374,7 +424,7 @@ int main(void)
 
 			if (tx_ready)
 			{
-				Send_Data();
+				Send_Data(ema_pressure.y, ema_temperature.y);
 				tx_ready = false;
 			}
 
@@ -389,8 +439,6 @@ int main(void)
 			}
 			break;
 		}
-
-
 	}
 
 	else if ((programming_mode == PRO_MODE_PROGRAMMING) & rx_received)		//
@@ -774,61 +822,88 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-static void DeepSleep(uint32_t timer_s)
+//=============================== EEPROM ==================================
+
+static uint32_t EE_ADDR(uint32_t off)
 {
-    // 1) Wakeup-Quelle konfigurieren (one-shot)
-    HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);
-    // CK_SPRE (=1 Hz) → Zähler = Sekunden
-    HAL_RTCEx_SetWakeUpTimer_IT(&hrtc, timer_s, RTC_WAKEUPCLOCK_CK_SPRE_16BITS);
-
-    // 2) Optional: Peripherie in LowPower (z. B. CC1101 schlafen)
-    // CC1101_write_strobe(&cc1101, CC1101_STROBE_SIDLE);
-    // CC1101_write_strobe(&cc1101, CC1101_STROBE_SPWD);
-
-    // 3) SysTick pausieren (spart Strom, vermeidet unnötige Wakeups)
-    HAL_SuspendTick();
-
-    // 4) In STOP gehen (Regulator LowPower oder on; LowPower spart mehr)
-    HAL_PWREx_EnableUltraLowPower();  // L0 unterstützt das
-    HAL_PWREx_EnableFastWakeUp();
-    HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
-
-    // ---- hier geht’s nach dem Wakeup weiter ----
-
-    // 5) Systemtakt wiederherstellen (PLL/HSE sind aus)
-    SystemClock_Config();       // deine CubeMX-Funktion erneut aufrufen
-    HAL_ResumeTick();
-
-    // 6) Falls nötig: Peripherie neu initialisieren (Clocks neu anlegen)
-    // MX_I2C1_Init(); MX_SPI1_Init(); // wenn sie nach STOP nicht mehr takten
-    // CC1101 ggf. wieder wecken: CC1101_Apply433_38k4(&cc1101); CC1101_EnterRx(&cc1101);
+	return (0x08080000UL + off);
 }
 
-
-
-static void ema_set_alpha(ema_t *f, float dt_s, float tau_s)
+// --- READ ---
+static uint8_t  EE_ReadU8 (uint32_t off)
 {
-	//set correct alpha for selected filter period
-    f->alpha = 1.0f - expf(-dt_s / tau_s);
+	return *(__IO uint8_t*) EE_ADDR(off);
 }
 
-static float ema_push(ema_t *f, float val) {
-    f->y += f->alpha * (val - f->y);
-    return f->y;
+static uint32_t EE_ReadU32(uint32_t off)
+{
+	return *(__IO uint32_t*)EE_ADDR(off);
 }
 
-static uint8_t EE_ReadU8(ee_offset_t offset)
+static float EE_ReadF32(uint32_t off)
 {
-	uint32_t addr = (uint32_t)(DATA_EEPROM_BASE + (uint32_t)offset);
-    return *(__IO uint8_t*)addr;
+    uint32_t u = EE_ReadU32(off);
+    float f;
+    memcpy(&f, &u, sizeof f);     // Bitwise
+    return f;
 }
 
-static void EE_WriteU8(ee_offset_t offset, uint8_t val)
+// --- WRITE ---
+static void EE_WriteU8(uint32_t off, uint8_t v)
 {
-	uint32_t addr = (uint32_t)(DATA_EEPROM_BASE + (uint32_t)offset);
+    if (EE_ReadU8(off) == v) return;
     HAL_FLASHEx_DATAEEPROM_Unlock();
-    HAL_FLASHEx_DATAEEPROM_Program(FLASH_TYPEPROGRAMDATA_BYTE, addr, val);
+    HAL_FLASHEx_DATAEEPROM_Program(FLASH_TYPEPROGRAMDATA_BYTE, EE_ADDR(off), v);
     HAL_FLASHEx_DATAEEPROM_Lock();
+}
+
+static void EE_WriteU32(uint32_t off, uint32_t v)
+{
+    if (EE_ReadU32(off) == v) return;
+    HAL_FLASHEx_DATAEEPROM_Unlock();
+    HAL_FLASHEx_DATAEEPROM_Program(FLASH_TYPEPROGRAMDATA_WORD, EE_ADDR(off), v);
+    HAL_FLASHEx_DATAEEPROM_Lock();
+}
+
+static void EE_WriteF32(uint32_t off, float f)
+{
+    uint32_t u;
+    memcpy(&u, &f, sizeof u);     // Float-Bits unverändert
+    EE_WriteU32(off, u);
+}
+
+static void Settings_LoadOrInit(bool firstcall)
+{
+    if (firstcall)
+    {
+        EE_WriteU8(EE_ADDR_SENSOR_ID, sensorid);
+        EE_WriteU8(EE_ADDR_SENSOR_TYPE, sensortype);
+
+        EE_WriteU32(EE_ADDR_STORAGE_SAMPLE, storage_time_sample);
+        EE_WriteU32(EE_ADDR_TRANS_TX, trans_time_tx);
+        EE_WriteU32(EE_ADDR_TRANS_SAMPLE, trans_time_sample);
+        EE_WriteU32(EE_ADDR_STATIC_TX, static_time_tx);
+        EE_WriteU32(EE_ADDR_STATIC_SAMPLE, static_time_sample);
+
+        EE_WriteF32(EE_ADDR_THRESH1, trans_press_thresh1);
+        EE_WriteF32(EE_ADDR_THRESH2, trans_press_thresh2);
+        EE_WriteF32(EE_ADDR_CHANGE, trans_press_change);
+    }
+    else
+    {
+        sensorid            = EE_ReadU8(EE_ADDR_SENSOR_ID);
+        sensortype          = EE_ReadU8(EE_ADDR_SENSOR_TYPE);
+
+        storage_time_sample = EE_ReadU32(EE_ADDR_STORAGE_SAMPLE);
+        trans_time_tx       = EE_ReadU32(EE_ADDR_TRANS_TX);
+        trans_time_sample   = EE_ReadU32(EE_ADDR_TRANS_SAMPLE);
+        static_time_tx      = EE_ReadU32(EE_ADDR_STATIC_TX);
+        static_time_sample  = EE_ReadU32(EE_ADDR_STATIC_SAMPLE);
+
+        trans_press_thresh1 = EE_ReadF32(EE_ADDR_THRESH1);
+        trans_press_thresh2 = EE_ReadF32(EE_ADDR_THRESH2);
+        trans_press_change  = EE_ReadF32(EE_ADDR_CHANGE);
+    }
 }
 
 static void Write_Programming(pro_cmd_t cmd, uint8_t data)
@@ -844,6 +919,67 @@ static void Write_Programming(pro_cmd_t cmd, uint8_t data)
 		//EE_WriteU8(EE_ADDR_..., data);
 	}
 }
+
+//================================= EMA ====================================
+
+static void ema_set_alpha(ema_t *f, float dt_s, float tau_s)
+{
+	//set correct alpha for selected filter period
+    f->alpha = 1.0f - expf(-dt_s / tau_s);
+}
+
+static float ema_push(ema_t *f, float val) {
+    f->y += f->alpha * (val - f->y);
+    return f->y;
+}
+
+
+//================================= TIMER ====================================
+
+static void SetTimer(TIM_HandleTypeDef *htim, uint32_t timer_ms)
+{
+	timer_ms = timer_ms - 1;
+
+
+    __HAL_TIM_DISABLE(htim);                       				// Stop Timer
+    __HAL_TIM_SET_AUTORELOAD(htim, timer_ms);          			// Set Timer period
+    __HAL_TIM_SET_COUNTER(htim, 0);               				// zero counter
+    __HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_UPDATE);  				// remove update flag
+    HAL_TIM_GenerateEvent(htim, TIM_EVENTSOURCE_UPDATE); 		// latch psc
+    __HAL_TIM_ENABLE(htim);                        				// Restart Timer
+}
+
+static void DeepSleep(uint32_t timer_s)
+{
+    HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);
+    HAL_RTCEx_SetWakeUpTimer_IT(&hrtc, timer_s, RTC_WAKEUPCLOCK_CK_SPRE_16BITS);
+    HAL_SuspendTick();
+
+    HAL_PWREx_EnableUltraLowPower();
+    HAL_PWREx_EnableFastWakeUp();
+    HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
+
+    SystemClock_Config();
+    HAL_ResumeTick();
+}
+
+//================================= TX ====================================
+
+static void Send_Data(float pressure, float temperature)		//Variables are defined at start to be used for debugging
+{
+	//CC1101 Send with all power levels
+	for(int i = 0; i < sizeof(cc1101_power_ramp); i++)
+	{
+		CC1101_Set_Tx_power(&cc1101, cc1101_power_ramp[i]);																						//ramp tx power to test rssi
+		CreateTx_DataFrame(tx_fifo, cc1101_power_ramp[i], sensortype, sensorid, tx_counter, pressure, temperature, abp2status_raw);					//sensorid and power reverse for testing best power
+		CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
+		tx_duration = CC1101_SendTx(&cc1101);																									//send time, depends on data rate
+	}
+	// Status read out
+	tx_counter++;
+	CC1101_read_marcstate(&cc1101, &marcstate);
+}
+//================================= RX ====================================
 
 static void Read_Programming_CMD(void)
 {
@@ -874,6 +1010,8 @@ static void Read_Programming_CMD(void)
 	}
 }
 
+//================================= IRQ ====================================
+
 static void Select_Mode(void)
 {
     if (HAL_GPIO_ReadPin(RX_TX_SW_IRQ_GPIO_Port, RX_TX_SW_IRQ_Pin) == GPIO_PIN_SET)
@@ -887,58 +1025,69 @@ static void Select_Mode(void)
 		pro_mode_changed = true;		//will be reset to false in main loop due to not changin cc1101 state in between main  methods
 }
 
-static void Send_Data(void)		//Variables are defined at start to be used for debugging
-{
-	//CC1101 Send with all power levels
-	for(int i = 0; i < sizeof(cc1101_power_ramp); i++)
-	{
-		CC1101_Set_Tx_power(&cc1101, cc1101_power_ramp[i]);																						//ramp tx power to test rssi
-		CreateTx_Frame(tx_fifo, cc1101_power_ramp[i], sensortype, sensorid, tx_counter, abp2_pressure, abp2_temperature, abp2status_raw);		//sensorid and power reverse for testing best power
-		CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
-		tx_duration = CC1101_SendTx(&cc1101);																									//send time, depends on data rate
-	}
-	// Status read out
-	tx_counter++;
-	CC1101_read_marcstate(&cc1101, &marcstate);
-}
 
-static void CreateTx_Frame(uint8_t *frame, uint8_t sensorid, uint8_t sensor_type, cc1101_tx_power power, uint8_t counter, float pressure, float temperature, uint8_t status_raw)
+//================================= FIFO ====================================
+
+static void CreateTx_DataFrame(uint8_t *frame, uint8_t sensorid, uint8_t sensor_type, cc1101_tx_power power, uint8_t counter, float pressure, float temperature, uint8_t status_raw)
 {
     uint8_t i = 1;
+
     frame[i++] = sensorid;
     frame[i++] = sensor_type;
     frame[i++] = power;										//add send power
     frame[i++] = counter;                    				//add alive counter
-    frame[i++] = status_raw;                   				//add sensor status
+    frame[i++] = status_raw;  								//add sensor status
+
     Float_to_Bytearray(&frame[i], pressure);   i += 4;		//add pressure as uint32
     Float_to_Bytearray(&frame[i], temperature);i += 4;		//add temperature as uint32
+
     frame[0] = i-1;											//add frame length as first byte
 }
 
+static void CreateTx_EEPROMFrame(uint8_t *frame)
+{
+    uint8_t i = 1;
+
+    frame[i++] = sensorid;
+    frame[i++] = sensortype;
+
+    UINT32_to_Bytearray(&frame[i], storage_time_sample);		i += 4;
+    UINT32_to_Bytearray(&frame[i], trans_time_tx);				i += 4;
+    UINT32_to_Bytearray(&frame[i], trans_time_sample);			i += 4;
+    UINT32_to_Bytearray(&frame[i], static_time_tx);				i += 4;
+    UINT32_to_Bytearray(&frame[i], static_time_sample);			i += 4;
+
+
+    Float_to_Bytearray(&frame[i], trans_press_thresh1);   		i += 4;
+    Float_to_Bytearray(&frame[i], trans_press_thresh2);			i += 4;
+    Float_to_Bytearray(&frame[i], trans_press_change);			i += 4;
+
+    frame[0] = i-1;											//add frame length as first byte
+}
+
+
+//============================== DATA CONVERSION =================================
+
 static void Float_to_Bytearray(uint8_t p[4], float f)
 {
-    uint32_t u;
-    //Float to U32
-    memcpy(&u, &f, sizeof u);
-    //U32 to Byte Array
-    p[0] = (uint8_t)(u >> 24);
-    p[1] = (uint8_t)(u >> 16);
-    p[2] = (uint8_t)(u >>  8);
-    p[3] = (uint8_t)(u >>  0);
+    uint32_t u = Float_to_UINT32(f);
 }
 
-
-static void SetTimer(TIM_HandleTypeDef *htim, uint32_t timer_ms)
+static void UINT32_to_Bytearray(uint8_t out[4], uint32_t u)
 {
-	timer_ms = timer_ms - 1;
-
-    __HAL_TIM_DISABLE(htim);                       				// Stop Timer
-    __HAL_TIM_SET_AUTORELOAD(htim, timer_ms);          			// Set Timer period
-    __HAL_TIM_SET_COUNTER(htim, 0);               				// zero counter
-    __HAL_TIM_CLEAR_FLAG(htim, TIM_FLAG_UPDATE);  				// remove update flag
-    __HAL_TIM_GENERATE_EVENT(htim, TIM_EVENTSOURCE_UPDATE); 	// latch psc
-    __HAL_TIM_ENABLE(htim);                        				// Restart Timer
+    out[0] = (uint8_t)(u >> 24);
+    out[1] = (uint8_t)(u >> 16);
+    out[2] = (uint8_t)(u >>  8);
+    out[3] = (uint8_t)(u >>  0);
 }
+
+static uint32_t Float_to_UINT32(float f)
+{
+    uint32_t u;
+    memcpy(&u, &f, sizeof u);   // Bitwise
+    return u;
+}
+
 
 /* USER CODE END 4 */
 

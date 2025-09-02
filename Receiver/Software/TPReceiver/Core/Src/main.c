@@ -173,13 +173,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	//UBS virtual COM test
-	usb_buf[0] = usb_counter;
-	CDC_Transmit_FS(usb_buf, sizeof(usb_buf));
-	usb_counter++;
-	HAL_Delay(1000);
-
-	/* Sensor ID write cmd testing
+	//Sensor ID write cmd testing
 	CC1101_read_marcstate(&cc1101, &marcstate);
 	tx_fifo[2] = tx_counter;
 	CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
@@ -187,7 +181,7 @@ int main(void)
 	HAL_Delay(2000);
 	tx_counter++;
 	HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
-	*/
+
 
   }
   /* USER CODE END 3 */
