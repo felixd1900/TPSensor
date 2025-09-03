@@ -39,8 +39,8 @@ typedef enum {
 	EE_ADDR_STORAGE_SAMPLE =		0x10,
 	EE_ADDR_TRANS_SAMPLE =			0x14,
 	EE_ADDR_TRANS_TX =				0x18,
-	EE_ADDR_STATIC_SAMPLE =			0x1B,
-	EE_ADDR_STATIC_TX =				0x1F,
+	EE_ADDR_STATIC_SAMPLE =			0x1C,
+	EE_ADDR_STATIC_TX =				0x20,
 	// float
 	EE_ADDR_THRESH1 =				0x30,
 	EE_ADDR_THRESH2 =				0x34,
@@ -62,7 +62,8 @@ typedef enum {
 	PRO_CMD_STATIC_TX = 				0x14,
 	PRO_CMD_PRESS_THRESH1 = 			0x20,
 	PRO_CMD_PRESS_THRESH2 = 			0x21,
-	PRO_CMD_PRESS_TRESH_CHANGE = 		0x22
+	PRO_CMD_PRESS_THRESH_CHANGE = 		0x22,
+	PRO_CMD_READ_ALL =					0x50
 } pro_cmd_t;
 
 typedef enum {
@@ -97,8 +98,10 @@ typedef struct {
 /* USER CODE BEGIN PD */
 
 #define ABP2_I2C_ID				0x28
-#define TX_FIFO_EEPROM_LEN		5		// (cmd string) length, cmd, uint8 data, lqi, rssi
-#define TX_FIFO_DATA_LEN		5
+#define TX_FIFO_EEPROM_LEN		34
+#define TX_FIFO_DATA_LEN		13
+#define RX_FIFO_EEPROM_LEN		8		// length, cmd, uint32 data, lqi, rssi
+#define RESPONSE_DELAY 			100		//delay in ms when responding to request (wait for other CC1101 to settle in RX)
 
 /* USER CODE END PD */
 
@@ -128,8 +131,8 @@ eeprom_conf_t eeprom_conf = {
     .trans_time_sample   = 100,
     .static_time_tx      = 10000,
     .static_time_sample  = 100,
-    .trans_press_thresh1 = 1.1f,
-    .trans_press_thresh2 = 1.0f,
+    .trans_press_thresh1 = 0.9f,
+    .trans_press_thresh2 = 0.8f,
     .trans_press_change  = 0.0f,
 };
 
@@ -155,8 +158,8 @@ uint32_t abp2_sample_timer = 100;
 
 //============CC1101 TX Variables==========
 cc1101_t cc1101;
-uint8_t tx_fifo[TX_FIFO_DATA_LEN] = {};
-uint8_t tx_fifo[13] = {};
+uint8_t tx_fifo_eeprom[TX_FIFO_EEPROM_LEN] = {};
+uint8_t tx_fifo_data[TX_FIFO_DATA_LEN] = {};
 uint8_t tx_counter = 0;
 cc1101_marc_state marcstate = CC1101_MARC_SLEEP;
 bool Init_complete = false;
@@ -167,18 +170,22 @@ uint32_t tx_timer = 1000;
 
 //============CC1101 RX variables==========
 uint8_t rx_bytes = 0x00;
-uint8_t rx[TX_FIFO_EEPROM_LEN] = {0};
+uint8_t rx[RX_FIFO_EEPROM_LEN] = {0};
 bool rx_received = false;
 
 //=============Debug variables=============
-uint8_t status_part = 0;
-uint8_t status_ver = 0;
-uint8_t reg_all_before[46] = {0};
-uint8_t reg_all_after[46] = {0};
-cc1101_tx_power cc1101_power_ramp[8] = {CC1101_TX_M30dB, CC1101_TX_M20dB, CC1101_TX_M15dB, CC1101_TX_M10dB, CC1101_TX_0dB, CC1101_TX_5dB, CC1101_TX_7dB, CC1101_TX_10dB};
-
+uint8_t debug_status_part = 0;
+uint8_t debug_status_ver = 0;
+uint8_t debug_reg_all_before[46] = {0};
+uint8_t debug_reg_all_after[46] = {0};
+//cc1101_tx_power cc1101_power_ramp[8] = {CC1101_TX_M30dB, CC1101_TX_M20dB, CC1101_TX_M15dB, CC1101_TX_M10dB, CC1101_TX_0dB, CC1101_TX_5dB, CC1101_TX_7dB, CC1101_TX_10dB};
+cc1101_tx_power cc1101_power_ramp[1] = {CC1101_TX_10dB};
 uint32_t debug_timer_tick = 0;
 uint32_t debug_time_ms = 0;
+
+pro_cmd_t debug_pro_cmd;
+uint8_t debug_cmd_data[4] = {0};
+uint8_t debug_rx_counter = 0;
 
 /* USER CODE END PV */
 
@@ -199,8 +206,8 @@ static float EE_ReadF32(uint32_t off);
 static void EE_WriteU8(uint32_t off, uint8_t v);
 static void EE_WriteU32(uint32_t off, uint32_t v);
 static void EE_WriteF32(uint32_t off, float f);
-static void Settings_LoadOrInit(bool firstcall);
-static void Write_Programming(pro_cmd_t cmd, uint8_t data);
+static void Settings_LoadOrInit(bool firstcall, eeprom_conf_t *e);
+
 
 static float ema_push(ema_t *f, float val);
 static void ema_set_alpha(ema_t *f, float dt_s, float tau_s);
@@ -208,16 +215,22 @@ static void ema_set_alpha(ema_t *f, float dt_s, float tau_s);
 static void SetTimer(TIM_HandleTypeDef *htim, uint32_t timer_ms);
 static void DeepSleep(uint32_t timer_s);
 
-static void Send_Data(float pressure, float temperature);
+static void Send_Data(eeprom_conf_t e, float pressure, float temperature);
+static void Send_EEPROM(eeprom_conf_t e);
 static void Read_Programming_CMD(void);
+static void Write_Programming(uint8_t *buf, eeprom_conf_t *e);
 
 static void Select_Mode(void);
-static void CreateTx_DataFrame(uint8_t *frame, uint8_t sensorid, uint8_t sensor_type, cc1101_tx_power power, uint8_t counter, float pressure, float temperature, uint8_t status_raw);
-static void CreateTx_EEPROMFrame(uint8_t *frame);
+static void CreateTx_DataFrame(uint8_t *frame, uint8_t power, eeprom_conf_t e, float pressure, float temperature);
+static void CreateTx_EEPROMFrame(uint8_t *frame, eeprom_conf_t e);
 
 static void Float_to_Bytearray(uint8_t p[4], float f);
 static void UINT32_to_Bytearray(uint8_t out[4], uint32_t u);
 static uint32_t Float_to_UINT32(float f);
+
+static uint32_t Bytearray_to_UINT32(const uint8_t p[4]);
+static float UINT32_to_Float(uint32_t u);
+static float Bytearray_to_Float(const uint8_t p[4]);
 
 /* USER CODE END PFP */
 
@@ -235,7 +248,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 		else if (GPIO_Pin == RX_IRQ_Pin)
 		{
-			//rx_received = true;
+			rx_received = true;
 		}
 	}
 }
@@ -294,7 +307,7 @@ int main(void)
   MX_TIM22_Init();
   /* USER CODE BEGIN 2 */
 
-  Settings_LoadOrInit(true);		//true write first time to eeprom, flase read from eeprom
+  Settings_LoadOrInit(false, &eeprom_conf);		//true write first time to eeprom, flase read from eeprom
 
   //Start Timers
   HAL_TIM_Base_Start_IT(&htim21);
@@ -307,16 +320,16 @@ int main(void)
   CC1101_Init(&cc1101, &hspi1, SPI1_CS_GPIO_Port, SPI1_CS_Pin);
 
   // CC1101 Debugging tests
-  CC1101_read_status(&cc1101, CC1101_STATUS_PARTNUM, &status_part);
-  CC1101_read_status(&cc1101, CC1101_STATUS_VERSION, &status_ver);
+  CC1101_read_status(&cc1101, CC1101_STATUS_PARTNUM, &debug_status_part);
+  CC1101_read_status(&cc1101, CC1101_STATUS_VERSION, &debug_status_ver);
 
   // CC1101 Configuration
-  CC1101_read_register_burst(&cc1101, CC1101_REG_IOCFG2, reg_all_before, 46);
+  CC1101_read_register_burst(&cc1101, CC1101_REG_IOCFG2, debug_reg_all_before, 46);
   CC1101_Apply433_38k4(&cc1101);
-  CC1101_read_register_burst(&cc1101, CC1101_REG_IOCFG2, reg_all_after, 46);
+  CC1101_read_register_burst(&cc1101, CC1101_REG_IOCFG2, debug_reg_all_after, 46);
 
-  // CC1101 Prepare for tx
-  CC1101_PrepareTx(&cc1101);
+  // CC1101 Prepare for tx/rx will be perfomed at start of main wile loop
+
   Init_complete = true;
 
   Select_Mode();		//init programming mode
@@ -414,13 +427,13 @@ int main(void)
 			if (tx_ready)
 			{
 				CC1101_PrepareTx(&cc1101);
-				Send_Data(ema_pressure.y, ema_temperature.y);
+				Send_Data(eeprom_conf, ema_pressure.y, ema_temperature.y);
 				CC1101_EnterSleep(&cc1101);
 				tx_ready = false;
 			}
 
 			//Condition change
-			if (abp2_pressure_change > trans_press_change)
+			if (abp2_pressure_change > eeprom_conf.trans_press_change)
 			{
 				operational_mode = OP_MODE_TRANSIENT;
 			}
@@ -441,16 +454,16 @@ int main(void)
 
 			if (tx_ready)
 			{
-				Send_Data(ema_pressure.y, ema_temperature.y);
+				Send_Data(eeprom_conf, ema_pressure.y, ema_temperature.y);
 				tx_ready = false;
 			}
 
 			//Condition change
-			if (abp2_pressure_change > trans_press_change)
+			if (abp2_pressure_change > eeprom_conf.trans_press_change)
 			{
 				operational_mode = OP_MODE_TRANSIENT;
 			}
-			else if (abp2_pressure < trans_press_thresh2)
+			else if (abp2_pressure < eeprom_conf.trans_press_thresh2)
 			{
 				operational_mode = OP_MODE_STORAGE;
 			}
@@ -461,8 +474,11 @@ int main(void)
 	else if ((programming_mode == PRO_MODE_PROGRAMMING) & rx_received)		//
 	{
 		//receive programming data and write to eeprom and variables
-		Read_Programming_CMD();
-		rx_received = false;
+		if (rx_received)
+		{
+			Read_Programming_CMD();
+			rx_received = false;
+		}
 	}
 	//Loop Indication & Delay
 	HAL_Delay(200);
@@ -912,49 +928,81 @@ static void Settings_LoadOrInit(bool firstcall, eeprom_conf_t *e)
     	e->sensortype = EE_ReadU8(EE_ADDR_SENSOR_TYPE);
 
     	e->storage_time_sample = EE_ReadU32(EE_ADDR_STORAGE_SAMPLE);
-    	e.trans_time_tx = EE_ReadU32(EE_ADDR_TRANS_TX);
-    	e.trans_time_sample = EE_ReadU32(EE_ADDR_TRANS_SAMPLE);
-    	e.static_time_tx = EE_ReadU32(EE_ADDR_STATIC_TX);
-    	e.static_time_sample = EE_ReadU32(EE_ADDR_STATIC_SAMPLE);
+    	e->trans_time_tx = EE_ReadU32(EE_ADDR_TRANS_TX);
+    	e->trans_time_sample = EE_ReadU32(EE_ADDR_TRANS_SAMPLE);
+    	e->static_time_tx = EE_ReadU32(EE_ADDR_STATIC_TX);
+    	e->static_time_sample = EE_ReadU32(EE_ADDR_STATIC_SAMPLE);
 
-    	e.trans_press_thresh1 = EE_ReadF32(EE_ADDR_THRESH1);
-    	e.trans_press_thresh2 = EE_ReadF32(EE_ADDR_THRESH2);
-    	e.trans_press_change = EE_ReadF32(EE_ADDR_CHANGE);
+    	e->trans_press_thresh1 = EE_ReadF32(EE_ADDR_THRESH1);
+    	e->trans_press_thresh2 = EE_ReadF32(EE_ADDR_THRESH2);
+    	e->trans_press_change = EE_ReadF32(EE_ADDR_CHANGE);
     }
 }
 
-static void Write_Programming(pro_cmd_t cmd, uint8_t data)
+static void Write_Programming(uint8_t *buf, eeprom_conf_t *e)
 {
+	//length is byte 0
+	pro_cmd_t cmd = buf[1];
+	uint8_t *data = &buf[2];
+
+	debug_pro_cmd = cmd;
+	memcpy(debug_cmd_data, buf + 2, sizeof(debug_cmd_data));
+
 	switch (cmd)
 	{
 	case PRO_CMD_SENSOR_ID:
-		sensorid = data;
-		EE_WriteU8(EE_ADDR_SENSOR_ID, data);
+		e->sensorid = data[0];
+		EE_WriteU8(EE_ADDR_SENSOR_ID, e->sensorid);
 		break;
 
 	case PRO_CMD_SENSOR_TYPE:
-		sensortype = data;
-		EE_WriteU8(EE_ADDR_SENSOR_TYPE, data);
+		e->sensortype = data[0];
+		EE_WriteU8(EE_ADDR_SENSOR_TYPE, e->sensortype);
 		break;
 
-	case PRO_CMD_SENSOR_TYPE:
-		sensortype = data;
-		EE_WriteU8(EE_ADDR_SENSOR_TYPE, data);
+	case PRO_CMD_STORAGE_SAMPLE:
+		e->storage_time_sample = Bytearray_to_UINT32(data);
+		EE_WriteU32(EE_ADDR_STORAGE_SAMPLE, e->storage_time_sample);
 		break;
 
-	case PRO_CMD_SENSOR_TYPE:
-		sensortype = data;
-		EE_WriteU8(EE_ADDR_SENSOR_TYPE, data);
+	case PRO_CMD_TRANS_TX:
+		e->trans_time_tx = Bytearray_to_UINT32(data);
+		EE_WriteU32(EE_ADDR_TRANS_TX, e->trans_time_tx);
 		break;
 
-	case PRO_CMD_SENSOR_TYPE:
-		sensortype = data;
-		EE_WriteU8(EE_ADDR_SENSOR_TYPE, data);
+	case PRO_CMD_TRANS_SAMPLE:
+		e->trans_time_sample = Bytearray_to_UINT32(data);
+		EE_WriteU32(EE_ADDR_TRANS_SAMPLE, e->trans_time_sample);
 		break;
 
-	case PRO_CMD_SENSOR_TYPE:
-		sensortype = data;
-		EE_WriteU8(EE_ADDR_SENSOR_TYPE, data);
+	case PRO_CMD_STATIC_TX:
+		e->static_time_tx = Bytearray_to_UINT32(data);
+		EE_WriteU32(EE_ADDR_STATIC_TX, e->static_time_tx);
+		break;
+
+	case PRO_CMD_STATIC_SAMPLE:
+		e->static_time_sample = Bytearray_to_UINT32(data);
+		EE_WriteU32(EE_ADDR_STATIC_SAMPLE, e->static_time_sample);
+		break;
+
+	case PRO_CMD_PRESS_THRESH1:
+		e->trans_press_thresh1 = Bytearray_to_Float(data);
+		EE_WriteF32(EE_ADDR_THRESH1, e->trans_press_thresh1);
+		break;
+
+	case PRO_CMD_PRESS_THRESH2:
+		e->trans_press_thresh2 = Bytearray_to_Float(data);
+		EE_WriteF32(EE_ADDR_THRESH2, e->trans_press_thresh2);
+		break;
+
+	case PRO_CMD_PRESS_THRESH_CHANGE:
+		e->trans_press_change = Bytearray_to_Float(data);
+		EE_WriteF32(EE_ADDR_CHANGE, e->trans_press_change);
+		break;
+
+	case PRO_CMD_READ_ALL:
+		HAL_Delay(RESPONSE_DELAY);
+		Send_EEPROM(eeprom_conf);
 		break;
 	}
 }
@@ -1004,47 +1052,61 @@ static void DeepSleep(uint32_t timer_s)
 
 //================================= TX ====================================
 
-static void Send_Data(float pressure, float temperature)		//Variables are defined at start to be used for debugging
+static void Send_Data(eeprom_conf_t e, float pressure, float temperature)		//Variables are defined at start to be used for debugging
 {
 	//CC1101 Send with all power levels
 	for(int i = 0; i < sizeof(cc1101_power_ramp); i++)
 	{
-		CC1101_Set_Tx_power(&cc1101, cc1101_power_ramp[i]);																						//ramp tx power to test rssi
-		CreateTx_DataFrame(tx_fifo, cc1101_power_ramp[i], sensortype, sensorid, tx_counter, pressure, temperature, abp2status_raw);					//sensorid and power reverse for testing best power
-		CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
-		tx_duration = CC1101_SendTx(&cc1101);																									//send time, depends on data rate
+		CC1101_Set_Tx_power(&cc1101, cc1101_power_ramp[i]);										//ramp tx power to test rssi
+		CreateTx_DataFrame(tx_fifo_data, cc1101_power_ramp[i], e, pressure, temperature);
+		CC1101_write_TX_FIFO(&cc1101, tx_fifo_data, sizeof(tx_fifo_data));
+		tx_duration = CC1101_SendTx(&cc1101);													//send time, depends on data rate
 	}
 	// Status read out
 	tx_counter++;
 	CC1101_read_marcstate(&cc1101, &marcstate);
 }
+
+static void Send_EEPROM(eeprom_conf_t e)
+{
+	//CC1101 Send with all power levels
+	for(int i = 0; i < sizeof(cc1101_power_ramp); i++)
+	{
+		CC1101_Set_Tx_power(&cc1101, cc1101_power_ramp[i]);								//ramp tx power to test rssi
+		CreateTx_EEPROMFrame(tx_fifo_eeprom, e);
+		CC1101_write_TX_FIFO(&cc1101, tx_fifo_eeprom, sizeof(tx_fifo_eeprom));
+		tx_duration = CC1101_SendTx(&cc1101);											//send time, depends on data rate
+	}
+	// Status read out
+	tx_counter++;
+	CC1101_read_marcstate(&cc1101, &marcstate);
+}
+
 //================================= RX ====================================
 
 static void Read_Programming_CMD(void)
 {
 	//CC1101 RX Status
+	debug_rx_counter++;
 	CC1101_read_status(&cc1101, CC1101_STATUS_RXBYTES, &rx_bytes);
 	CC1101_read_marcstate(&cc1101, &marcstate);
 
 
 	if ((rx_bytes > 0) && (marcstate == CC1101_MARC_RX))
 	{
-		if (rx_bytes % TX_FIFO_EEPROM_LEN == 0)
+		if (rx_bytes == RX_FIFO_EEPROM_LEN)
 		{
-			for (int i = 0; i < (rx_bytes / TX_FIFO_EEPROM_LEN); i++)
-			{
-				//read all packets received (only if fifo is not read in between)
-				CC1101_read_RX_FIFO(&cc1101, rx, rx_bytes);
-				Write_Programming(rx[1], rx[2]);
-			}
-		}
-		else if (rx_bytes > TX_FIFO_EEPROM_LEN)
-		{
-			CC1101_EnterRx(&cc1101);	//flushing fifo in RX state is not possible, so flush in idle state
+			//read current packet
+			CC1101_read_RX_FIFO(&cc1101, rx, rx_bytes);
+			Write_Programming(rx, &eeprom_conf);
 		}
 		else if (marcstate == CC1101_MARC_RXFIFO_OVERFLOW)
 		{
 			CC1101_Recover_RX_Overflow(&cc1101);		//goning to idle is only allowed via flushing rx fifo
+		}
+		else
+		{
+			CC1101_EnterRx(&cc1101);	//flushing fifo in RX state is not possible, so flush in idle state
 		}
 	}
 }
@@ -1067,15 +1129,15 @@ static void Select_Mode(void)
 
 //================================= FIFO ====================================
 
-static void CreateTx_DataFrame(uint8_t *frame, uint8_t sensorid, uint8_t sensor_type, cc1101_tx_power power, uint8_t counter, float pressure, float temperature, uint8_t status_raw)
+static void CreateTx_DataFrame(uint8_t *frame, uint8_t power, eeprom_conf_t e, float pressure, float temperature)
 {
     uint8_t i = 1;
 
-    frame[i++] = sensorid;
-    frame[i++] = sensor_type;
+    frame[i++] = eeprom_conf.sensorid;
+    frame[i++] = eeprom_conf.sensortype;
     frame[i++] = power;										//add send power
-    frame[i++] = counter;                    				//add alive counter
-    frame[i++] = status_raw;  								//add sensor status
+    frame[i++] = tx_counter;                    				//add alive counter
+    frame[i++] = abp2status_raw;  								//add sensor status
 
     Float_to_Bytearray(&frame[i], pressure);   i += 4;		//add pressure as uint32
     Float_to_Bytearray(&frame[i], temperature);i += 4;		//add temperature as uint32
@@ -1083,23 +1145,23 @@ static void CreateTx_DataFrame(uint8_t *frame, uint8_t sensorid, uint8_t sensor_
     frame[0] = i-1;											//add frame length as first byte
 }
 
-static void CreateTx_EEPROMFrame(uint8_t *frame)
+static void CreateTx_EEPROMFrame(uint8_t *frame, eeprom_conf_t e)
 {
     uint8_t i = 1;
 
-    frame[i++] = sensorid;
-    frame[i++] = sensortype;
+    frame[i++] = e.sensorid;
+    frame[i++] = e.sensortype;
 
-    UINT32_to_Bytearray(&frame[i], storage_time_sample);		i += 4;
-    UINT32_to_Bytearray(&frame[i], trans_time_tx);				i += 4;
-    UINT32_to_Bytearray(&frame[i], trans_time_sample);			i += 4;
-    UINT32_to_Bytearray(&frame[i], static_time_tx);				i += 4;
-    UINT32_to_Bytearray(&frame[i], static_time_sample);			i += 4;
+    UINT32_to_Bytearray(&frame[i], e.storage_time_sample);			i += 4;
+    UINT32_to_Bytearray(&frame[i], e.trans_time_tx);				i += 4;
+    UINT32_to_Bytearray(&frame[i], e.trans_time_sample);			i += 4;
+    UINT32_to_Bytearray(&frame[i], e.static_time_tx);				i += 4;
+    UINT32_to_Bytearray(&frame[i], e.static_time_sample);			i += 4;
 
 
-    Float_to_Bytearray(&frame[i], trans_press_thresh1);   		i += 4;
-    Float_to_Bytearray(&frame[i], trans_press_thresh2);			i += 4;
-    Float_to_Bytearray(&frame[i], trans_press_change);			i += 4;
+    Float_to_Bytearray(&frame[i], e.trans_press_thresh1);   		i += 4;
+    Float_to_Bytearray(&frame[i], e.trans_press_thresh2);			i += 4;
+    Float_to_Bytearray(&frame[i], e.trans_press_change);			i += 4;
 
     frame[0] = i-1;											//add frame length as first byte
 }
@@ -1110,6 +1172,7 @@ static void CreateTx_EEPROMFrame(uint8_t *frame)
 static void Float_to_Bytearray(uint8_t p[4], float f)
 {
     uint32_t u = Float_to_UINT32(f);
+    UINT32_to_Bytearray(p, u);
 }
 
 static void UINT32_to_Bytearray(uint8_t out[4], uint32_t u)
@@ -1125,6 +1188,27 @@ static uint32_t Float_to_UINT32(float f)
     uint32_t u;
     memcpy(&u, &f, sizeof u);   // Bitwise
     return u;
+}
+
+static uint32_t Bytearray_to_UINT32(const uint8_t p[4])
+{
+    return ((uint32_t)p[0] << 24) |
+           ((uint32_t)p[1] << 16) |
+           ((uint32_t)p[2] <<  8) |
+           ((uint32_t)p[3] <<  0);
+}
+
+static float UINT32_to_Float(uint32_t u)
+{
+    float f;
+    memcpy(&f, &u, sizeof f);   // bitwise
+    return f;
+}
+
+static float Bytearray_to_Float(const uint8_t p[4])
+{
+    uint32_t u = Bytearray_to_UINT32(p);
+    return UINT32_to_Float(u);
 }
 
 

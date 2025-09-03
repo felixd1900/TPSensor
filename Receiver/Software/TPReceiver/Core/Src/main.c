@@ -30,8 +30,17 @@
 /* USER CODE BEGIN PTD */
 
 typedef enum {
-	PRO_CMD_SENSORID = 		0x01,
-	PRO_CMD_TEST = 			0x02
+	PRO_CMD_SENSOR_ID = 				0x01,
+	PRO_CMD_SENSOR_TYPE = 				0x02,
+	PRO_CMD_STORAGE_SAMPLE = 			0x10,
+	PRO_CMD_TRANS_SAMPLE = 				0x11,
+	PRO_CMD_TRANS_TX = 					0x12,
+	PRO_CMD_STATIC_SAMPLE = 			0x13,
+	PRO_CMD_STATIC_TX = 				0x14,
+	PRO_CMD_PRESS_THRESH1 = 			0x20,
+	PRO_CMD_PRESS_THRESH2 = 			0x21,
+	PRO_CMD_PRESS_THRESH_CHANGE = 		0x22,
+	PRO_CMD_READ_ALL =					0x50
 } pro_cmd_t;
 
 /* USER CODE END PTD */
@@ -67,13 +76,13 @@ sensor_map_t sensor_map[SENSORS_MAX];
 bool Init_complete = false;
 
 //===========Debug variables==============
-uint8_t status_part = 0;
-uint8_t status_ver = 0;
+uint8_t debug_status_part = 0;
+uint8_t debug_status_ver = 0;
 
-uint8_t  reg_all_before[46] = {0};
-uint8_t  reg_all_after[46] = {0};
+uint8_t  debug_reg_all_before[46] = {0};
+uint8_t  debug_reg_all_after[46] = {0};
 
-uint8_t tx_fifo[3] = {0x02, PRO_CMD_SENSORID, 0x00};
+uint8_t tx_fifo[6] = {0x05, PRO_CMD_READ_ALL, 0x01, 0x02, 0x03, 0x04};
 uint8_t tx_counter = 0x01;
 
 
@@ -143,13 +152,13 @@ int main(void)
   CC1101_Init(&cc1101, &hspi1, SPI1_CS_GPIO_Port, SPI1_CS_Pin);
 
   // CC1101 Debugging tests
-  CC1101_read_status(&cc1101, CC1101_STATUS_PARTNUM, &status_part);
-  CC1101_read_status(&cc1101, CC1101_STATUS_VERSION, &status_ver);
+  CC1101_read_status(&cc1101, CC1101_STATUS_PARTNUM, &debug_status_part);
+  CC1101_read_status(&cc1101, CC1101_STATUS_VERSION, &debug_status_ver);
 
   // CC1101 configuration
-  CC1101_read_register_burst(&cc1101, CC1101_REG_IOCFG2, reg_all_before, 46);
+  CC1101_read_register_burst(&cc1101, CC1101_REG_IOCFG2, debug_reg_all_before, 46);
   CC1101_Apply433_38k4(&cc1101);
-  CC1101_read_register_burst(&cc1101, CC1101_REG_IOCFG2, reg_all_after, 46);
+  CC1101_read_register_burst(&cc1101, CC1101_REG_IOCFG2, debug_reg_all_after, 46);
 
   CC1101_Set_Rx_threshold(&cc1101, CC1101_RX_0dB);
 
@@ -158,6 +167,9 @@ int main(void)
 
   //programming mode test
   CC1101_PrepareTx(&cc1101);
+  CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
+  CC1101_SendTx(&cc1101);
+
 
   CC1101_Set_Tx_power(&cc1101, CC1101_TX_10dB);
   Init_complete = true;
@@ -172,11 +184,23 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
+
 	if (new_data)
 	{
 		ReadRx();
 		HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
+		new_data = false;
+		HAL_Delay(1000);
 	}
+
+
+	tx_fifo[2] = tx_counter;
+	CC1101_PrepareTx(&cc1101);
+	CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
+	CC1101_SendTx(&cc1101);
+	CC1101_EnterRx(&cc1101);
+	CC1101_read_marcstate(&cc1101, &marcstate);
+	tx_counter++;
 
 
 
@@ -350,7 +374,7 @@ static void ReadRx(void)
 			//read all packets received (only if fifo is not read in between)
 			CC1101_read_RX_FIFO(&cc1101, rx, rx_bytes);
 			ParseRx_Frame(rx, &sensor_received);
-			sensors_set_sensor(&sensor_map, sensor_received);
+			sensors_set_sensor(sensor_map, sensor_received);
 		}
 		else if (rx_bytes)
 		{
