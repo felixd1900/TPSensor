@@ -39,7 +39,8 @@ typedef enum {
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define EXPECTED_BYTES	16	//bytes send +2 (rssi and lqi)
+#define EXPECTED_BYTES_DATA		16	//bytes send (incl. length) +2 (rssi and lqi)
+#define EXPECTED_BYTES_EEPROM	37	//eeprom config (incl. length) +2 (rssi and lqi)
 
 /* USER CODE END PD */
 
@@ -57,7 +58,8 @@ cc1101_t cc1101;
 
 cc1101_marc_state marcstate = CC1101_MARC_SLEEP;
 uint8_t rx_bytes = 0xFF;
-uint8_t rx[EXPECTED_BYTES] = {0};
+uint8_t rx[50] = {0};		//must be big enough to fit all bytes
+bool new_data = false;
 
 sensor_data sensor_received;
 sensor_map_t sensor_map[SENSORS_MAX];
@@ -74,8 +76,6 @@ uint8_t  reg_all_after[46] = {0};
 uint8_t tx_fifo[3] = {0x02, PRO_CMD_SENSORID, 0x00};
 uint8_t tx_counter = 0x01;
 
-uint8_t usb_counter = 0x00;
-uint8_t usb_buf[8];
 
 /* USER CODE END PV */
 
@@ -99,8 +99,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	if (Init_complete)
 	{
 		//CC1101 complete package received
-		ReadRx();
-		HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
+		new_data = true;
 	}
 }
 
@@ -173,6 +172,15 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
+	if (new_data)
+	{
+		ReadRx();
+		HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
+	}
+
+
+
+	 /*
 	//Sensor ID write cmd testing
 	CC1101_read_marcstate(&cc1101, &marcstate);
 	tx_fifo[2] = tx_counter;
@@ -181,7 +189,7 @@ int main(void)
 	HAL_Delay(2000);
 	tx_counter++;
 	HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
-
+	*/
 
   }
   /* USER CODE END 3 */
@@ -335,25 +343,26 @@ static void ReadRx(void)
 	CC1101_read_marcstate(&cc1101, &marcstate);
 
 
-	if ((rx_bytes > 0) & (marcstate == CC1101_MARC_RX))
+	if ((rx_bytes > 0) && (marcstate == CC1101_MARC_RX))
 	{
-		if (rx_bytes % EXPECTED_BYTES == 0)
+		if (rx_bytes == EXPECTED_BYTES_DATA)
 		{
-			for (int i = 0; i < (rx_bytes / EXPECTED_BYTES); i++)
-			{
-				//read all packets received (only if fifo is not read in between)
-				CC1101_read_RX_FIFO(&cc1101, rx, rx_bytes);
-				ParseRx_Frame(rx, &sensor_received);
-				sensors_set_sensor(sensor_map, sensor_received);
-			}
+			//read all packets received (only if fifo is not read in between)
+			CC1101_read_RX_FIFO(&cc1101, rx, rx_bytes);
+			ParseRx_Frame(rx, &sensor_received);
+			sensors_set_sensor(&sensor_map, sensor_received);
 		}
-		else if (rx_bytes > EXPECTED_BYTES)
+		else if (rx_bytes)
 		{
-			CC1101_EnterRx(&cc1101);	//flushing fifo in RX state is not possible, so flush in idle state
+			//Read all
 		}
 		else if (marcstate == CC1101_MARC_RXFIFO_OVERFLOW)
 		{
 			CC1101_Recover_RX_Overflow(&cc1101);		//goning to idle is only allowed via flushing rx fifo
+		}
+		else
+		{
+			CC1101_EnterRx(&cc1101);	//flushing fifo in RX state is not possible, so flush in idle state
 		}
 	}
 }

@@ -65,12 +65,25 @@ typedef enum {
 	PRO_CMD_PRESS_TRESH_CHANGE = 		0x22
 } pro_cmd_t;
 
-
 typedef enum {
 	OP_MODE_STORAGE = 			0x01,
 	OP_MODE_TRANSIENT = 		0x02,
 	OP_MODE_STATIC =			0x03
 } op_mode_t;
+
+typedef struct {
+	uint8_t sensorid;						//this is the default sensorid the current id is stored in eeprom
+	uint8_t sensortype;						//0x01 = tyre pressure | 0x02 = brake disk pressure (to be implemented)
+	uint32_t storage_time_sample;			//sample rate tx (ms) in transient mode
+	uint32_t trans_time_tx;					//sample rate tx (ms) in transient mode
+	uint32_t trans_time_sample;				//sample rate abp2 read (ms) in transient mode
+	uint32_t static_time_tx;				//sample rate tx (ms) in transient mode
+	uint32_t static_time_sample;			//sample rate abp2 read (ms) in transient mode
+	float trans_press_thresh1;				//move from storage into transient mode
+	float trans_press_thresh2;				//move from transient mode into storage mode
+	float trans_press_change;				//minimum pressure change to move to transient mode
+}eeprom_conf_t;
+
 
 typedef struct {
     float y;            // filtered value
@@ -83,8 +96,9 @@ typedef struct {
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define ABP2_I2C_ID		0x28
-#define EXPECTED_BYTES	5		// (cmd string) length, cmd, uint8 data, lqi, rssi
+#define ABP2_I2C_ID				0x28
+#define TX_FIFO_EEPROM_LEN		5		// (cmd string) length, cmd, uint8 data, lqi, rssi
+#define TX_FIFO_DATA_LEN		5
 
 /* USER CODE END PD */
 
@@ -106,16 +120,18 @@ TIM_HandleTypeDef htim22;
 /* USER CODE BEGIN PV */
 
 //===========Programmable variables========
-uint8_t sensorid = 0x10;				//this is the default sensorid the current id is stored in eeprom
-uint8_t sensortype = 0x01;				//0x01 = tyre pressure | 0x02 = brake disk pressure (to be implemented)
-float trans_press_thresh1 = 1.1;		//move from storage into transient mode
-float trans_press_thresh2 = 1.0;		//move from transient mode into storage mode
-float trans_press_change = 0.0;			//minimum pressure change to move to transient mode
-uint32_t storage_time_sample = 5000;	//sample rate tx (ms) in transient mode
-uint32_t trans_time_tx = 1000;			//sample rate tx (ms) in transient mode
-uint32_t trans_time_sample = 100;		//sample rate abp2 read (ms) in transient mode
-uint32_t static_time_tx = 10000;		//sample rate tx (ms) in transient mode
-uint32_t static_time_sample = 100;		//sample rate abp2 read (ms) in transient mode
+eeprom_conf_t eeprom_conf = {
+    .sensorid            = 0x10,
+    .sensortype          = 0x01,   // 0x01 = tyre pressure
+    .storage_time_sample = 5000,
+    .trans_time_tx       = 1000,
+    .trans_time_sample   = 100,
+    .static_time_tx      = 10000,
+    .static_time_sample  = 100,
+    .trans_press_thresh1 = 1.1f,
+    .trans_press_thresh2 = 1.0f,
+    .trans_press_change  = 0.0f,
+};
 
 //==============Gereral variables==========
 pro_mode_t programming_mode = PRO_MODE_OPERATION;
@@ -139,6 +155,7 @@ uint32_t abp2_sample_timer = 100;
 
 //============CC1101 TX Variables==========
 cc1101_t cc1101;
+uint8_t tx_fifo[TX_FIFO_DATA_LEN] = {};
 uint8_t tx_fifo[13] = {};
 uint8_t tx_counter = 0;
 cc1101_marc_state marcstate = CC1101_MARC_SLEEP;
@@ -150,7 +167,7 @@ uint32_t tx_timer = 1000;
 
 //============CC1101 RX variables==========
 uint8_t rx_bytes = 0x00;
-uint8_t rx[EXPECTED_BYTES] = {0};
+uint8_t rx[TX_FIFO_EEPROM_LEN] = {0};
 bool rx_received = false;
 
 //=============Debug variables=============
@@ -343,15 +360,15 @@ int main(void)
 			switch (operational_mode)
 			{
 			case OP_MODE_STORAGE:
-				ema_set_alpha(&ema_pressure, storage_time_sample, storage_time_sample);		//set alpha
+				ema_set_alpha(&ema_pressure, eeprom_conf.storage_time_sample, eeprom_conf.storage_time_sample);		//set alpha
 				break;
 
 			case OP_MODE_TRANSIENT:
-				ema_set_alpha(&ema_pressure, trans_time_sample, trans_time_tx);				//set alpha
+				ema_set_alpha(&ema_pressure, eeprom_conf.trans_time_sample, eeprom_conf.trans_time_tx);				//set alpha
 				break;
 
 			case OP_MODE_STATIC:
-				ema_set_alpha(&ema_pressure, static_time_sample, static_time_tx);			//set alpha
+				ema_set_alpha(&ema_pressure, eeprom_conf.static_time_sample, eeprom_conf.static_time_tx);			//set alpha
 				break;
 			}
 		}
@@ -371,9 +388,9 @@ int main(void)
 			}
 
 			// Condition change
-			if (abp2_pressure > trans_press_thresh1)
+			if (abp2_pressure > eeprom_conf.trans_press_thresh1)
 			{
-				if (abp2_pressure_change > trans_press_change)
+				if (abp2_pressure_change > eeprom_conf.trans_press_change)
 				{
 					operational_mode = OP_MODE_TRANSIENT;
 				}
@@ -407,7 +424,7 @@ int main(void)
 			{
 				operational_mode = OP_MODE_TRANSIENT;
 			}
-			else if (abp2_pressure < trans_press_thresh2)
+			else if (abp2_pressure < eeprom_conf.trans_press_thresh2)
 			{
 				operational_mode = OP_MODE_STORAGE;
 			}
@@ -872,37 +889,37 @@ static void EE_WriteF32(uint32_t off, float f)
     EE_WriteU32(off, u);
 }
 
-static void Settings_LoadOrInit(bool firstcall)
+static void Settings_LoadOrInit(bool firstcall, eeprom_conf_t *e)
 {
     if (firstcall)
     {
-        EE_WriteU8(EE_ADDR_SENSOR_ID, sensorid);
-        EE_WriteU8(EE_ADDR_SENSOR_TYPE, sensortype);
+        EE_WriteU8(EE_ADDR_SENSOR_ID, e->sensorid);
+        EE_WriteU8(EE_ADDR_SENSOR_TYPE, e->sensortype);
 
-        EE_WriteU32(EE_ADDR_STORAGE_SAMPLE, storage_time_sample);
-        EE_WriteU32(EE_ADDR_TRANS_TX, trans_time_tx);
-        EE_WriteU32(EE_ADDR_TRANS_SAMPLE, trans_time_sample);
-        EE_WriteU32(EE_ADDR_STATIC_TX, static_time_tx);
-        EE_WriteU32(EE_ADDR_STATIC_SAMPLE, static_time_sample);
+        EE_WriteU32(EE_ADDR_STORAGE_SAMPLE, e->storage_time_sample);
+        EE_WriteU32(EE_ADDR_TRANS_TX, e->trans_time_tx);
+        EE_WriteU32(EE_ADDR_TRANS_SAMPLE, e->trans_time_sample);
+        EE_WriteU32(EE_ADDR_STATIC_TX, e->static_time_tx);
+        EE_WriteU32(EE_ADDR_STATIC_SAMPLE, e->static_time_sample);
 
-        EE_WriteF32(EE_ADDR_THRESH1, trans_press_thresh1);
-        EE_WriteF32(EE_ADDR_THRESH2, trans_press_thresh2);
-        EE_WriteF32(EE_ADDR_CHANGE, trans_press_change);
+        EE_WriteF32(EE_ADDR_THRESH1, e->trans_press_thresh1);
+        EE_WriteF32(EE_ADDR_THRESH2, e->trans_press_thresh2);
+        EE_WriteF32(EE_ADDR_CHANGE, e->trans_press_change);
     }
     else
     {
-        sensorid            = EE_ReadU8(EE_ADDR_SENSOR_ID);
-        sensortype          = EE_ReadU8(EE_ADDR_SENSOR_TYPE);
+    	e->sensorid  = EE_ReadU8(EE_ADDR_SENSOR_ID);
+    	e->sensortype = EE_ReadU8(EE_ADDR_SENSOR_TYPE);
 
-        storage_time_sample = EE_ReadU32(EE_ADDR_STORAGE_SAMPLE);
-        trans_time_tx       = EE_ReadU32(EE_ADDR_TRANS_TX);
-        trans_time_sample   = EE_ReadU32(EE_ADDR_TRANS_SAMPLE);
-        static_time_tx      = EE_ReadU32(EE_ADDR_STATIC_TX);
-        static_time_sample  = EE_ReadU32(EE_ADDR_STATIC_SAMPLE);
+    	e->storage_time_sample = EE_ReadU32(EE_ADDR_STORAGE_SAMPLE);
+    	e.trans_time_tx = EE_ReadU32(EE_ADDR_TRANS_TX);
+    	e.trans_time_sample = EE_ReadU32(EE_ADDR_TRANS_SAMPLE);
+    	e.static_time_tx = EE_ReadU32(EE_ADDR_STATIC_TX);
+    	e.static_time_sample = EE_ReadU32(EE_ADDR_STATIC_SAMPLE);
 
-        trans_press_thresh1 = EE_ReadF32(EE_ADDR_THRESH1);
-        trans_press_thresh2 = EE_ReadF32(EE_ADDR_THRESH2);
-        trans_press_change  = EE_ReadF32(EE_ADDR_CHANGE);
+    	e.trans_press_thresh1 = EE_ReadF32(EE_ADDR_THRESH1);
+    	e.trans_press_thresh2 = EE_ReadF32(EE_ADDR_THRESH2);
+    	e.trans_press_change = EE_ReadF32(EE_ADDR_CHANGE);
     }
 }
 
@@ -912,11 +929,33 @@ static void Write_Programming(pro_cmd_t cmd, uint8_t data)
 	{
 	case PRO_CMD_SENSOR_ID:
 		sensorid = data;
-		//EE_WriteU8(EE_ADDR_SENSORID, data);
+		EE_WriteU8(EE_ADDR_SENSOR_ID, data);
+		break;
 
 	case PRO_CMD_SENSOR_TYPE:
 		sensortype = data;
-		//EE_WriteU8(EE_ADDR_..., data);
+		EE_WriteU8(EE_ADDR_SENSOR_TYPE, data);
+		break;
+
+	case PRO_CMD_SENSOR_TYPE:
+		sensortype = data;
+		EE_WriteU8(EE_ADDR_SENSOR_TYPE, data);
+		break;
+
+	case PRO_CMD_SENSOR_TYPE:
+		sensortype = data;
+		EE_WriteU8(EE_ADDR_SENSOR_TYPE, data);
+		break;
+
+	case PRO_CMD_SENSOR_TYPE:
+		sensortype = data;
+		EE_WriteU8(EE_ADDR_SENSOR_TYPE, data);
+		break;
+
+	case PRO_CMD_SENSOR_TYPE:
+		sensortype = data;
+		EE_WriteU8(EE_ADDR_SENSOR_TYPE, data);
+		break;
 	}
 }
 
@@ -988,18 +1027,18 @@ static void Read_Programming_CMD(void)
 	CC1101_read_marcstate(&cc1101, &marcstate);
 
 
-	if ((rx_bytes > 0) & (marcstate == CC1101_MARC_RX))
+	if ((rx_bytes > 0) && (marcstate == CC1101_MARC_RX))
 	{
-		if (rx_bytes % EXPECTED_BYTES == 0)
+		if (rx_bytes % TX_FIFO_EEPROM_LEN == 0)
 		{
-			for (int i = 0; i < (rx_bytes / EXPECTED_BYTES); i++)
+			for (int i = 0; i < (rx_bytes / TX_FIFO_EEPROM_LEN); i++)
 			{
 				//read all packets received (only if fifo is not read in between)
 				CC1101_read_RX_FIFO(&cc1101, rx, rx_bytes);
 				Write_Programming(rx[1], rx[2]);
 			}
 		}
-		else if (rx_bytes > EXPECTED_BYTES)
+		else if (rx_bytes > TX_FIFO_EEPROM_LEN)
 		{
 			CC1101_EnterRx(&cc1101);	//flushing fifo in RX state is not possible, so flush in idle state
 		}

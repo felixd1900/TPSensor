@@ -1,9 +1,9 @@
 ../Core/Src/main.c:97:6:HAL_GPIO_EXTI_Callback	2
-../Core/Src/main.c:113:5:main	1
-../Core/Src/main.c:200:6:SystemClock_Config	4
-../Core/Src/main.c:250:13:MX_SPI1_Init	2
-../Core/Src/main.c:288:13:MX_GPIO_Init	1
-../Core/Src/main.c:337:13:ReadRx	6
-../Core/Src/main.c:367:13:ParseRx_Frame	1
-../Core/Src/main.c:383:13:Bytearray_to_Float	1
-../Core/Src/main.c:399:6:Error_Handler	1
+../Core/Src/main.c:112:5:main	2
+../Core/Src/main.c:202:6:SystemClock_Config	4
+../Core/Src/main.c:252:13:MX_SPI1_Init	2
+../Core/Src/main.c:290:13:MX_GPIO_Init	1
+../Core/Src/main.c:339:13:ReadRx	6
+../Core/Src/main.c:370:13:ParseRx_Frame	1
+../Core/Src/main.c:386:13:Bytearray_to_Float	1
+../Core/Src/main.c:402:6:Error_Handler	1
