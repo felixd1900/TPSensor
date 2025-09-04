@@ -98,8 +98,8 @@ typedef struct {
 /* USER CODE BEGIN PD */
 
 #define ABP2_I2C_ID				0x28
-#define TX_FIFO_EEPROM_LEN		34
-#define TX_FIFO_DATA_LEN		13
+#define TX_FIFO_EEPROM_LEN		35
+#define TX_FIFO_DATA_LEN		14
 #define RX_FIFO_EEPROM_LEN		8		// length, cmd, uint32 data, lqi, rssi
 #define RESPONSE_DELAY 			100		//delay in ms when responding to request (wait for other CC1101 to settle in RX)
 
@@ -131,8 +131,8 @@ eeprom_conf_t eeprom_conf = {
     .trans_time_sample   = 100,
     .static_time_tx      = 10000,
     .static_time_sample  = 100,
-    .trans_press_thresh1 = 0.9f,
-    .trans_press_thresh2 = 0.8f,
+    .trans_press_thresh1 = 0.6f,
+    .trans_press_thresh2 = 0.5f,
     .trans_press_change  = 0.0f,
 };
 
@@ -178,14 +178,15 @@ uint8_t debug_status_part = 0;
 uint8_t debug_status_ver = 0;
 uint8_t debug_reg_all_before[46] = {0};
 uint8_t debug_reg_all_after[46] = {0};
-//cc1101_tx_power cc1101_power_ramp[8] = {CC1101_TX_M30dB, CC1101_TX_M20dB, CC1101_TX_M15dB, CC1101_TX_M10dB, CC1101_TX_0dB, CC1101_TX_5dB, CC1101_TX_7dB, CC1101_TX_10dB};
-cc1101_tx_power cc1101_power_ramp[1] = {CC1101_TX_10dB};
+cc1101_tx_power cc1101_power_ramp[8] = {CC1101_TX_M30dB, CC1101_TX_M20dB, CC1101_TX_M15dB, CC1101_TX_M10dB, CC1101_TX_0dB, CC1101_TX_5dB, CC1101_TX_7dB, CC1101_TX_10dB};
+//cc1101_tx_power cc1101_power_ramp[1] = {CC1101_TX_10dB};
 uint32_t debug_timer_tick = 0;
 uint32_t debug_time_ms = 0;
 
 pro_cmd_t debug_pro_cmd;
 uint8_t debug_cmd_data[4] = {0};
 uint8_t debug_rx_counter = 0;
+uint8_t pktstatus = 0x00;
 
 /* USER CODE END PV */
 
@@ -307,7 +308,7 @@ int main(void)
   MX_TIM22_Init();
   /* USER CODE BEGIN 2 */
 
-  Settings_LoadOrInit(false, &eeprom_conf);		//true write first time to eeprom, flase read from eeprom
+  Settings_LoadOrInit(true, &eeprom_conf);		//true write first time to eeprom, flase read from eeprom
 
   //Start Timers
   HAL_TIM_Base_Start_IT(&htim21);
@@ -471,19 +472,21 @@ int main(void)
 		}
 	}
 
-	else if ((programming_mode == PRO_MODE_PROGRAMMING) & rx_received)		//
+	else if ((programming_mode == PRO_MODE_PROGRAMMING))
 	{
+		CC1101_read_marcstate(&cc1101, &marcstate);
+		CC1101_read_status(&cc1101, CC1101_STATUS_RXBYTES, &rx_bytes);
 		//receive programming data and write to eeprom and variables
 		if (rx_received)
 		{
+			CC1101_read_status(&cc1101, CC1101_STATUS_PKTSTATUS, &pktstatus);
 			Read_Programming_CMD();
 			rx_received = false;
 		}
 	}
 	//Loop Indication & Delay
-	HAL_Delay(200);
+	HAL_Delay(1000);
 	HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
-
   }
 
   /* USER CODE END 3 */
@@ -692,7 +695,7 @@ static void MX_TIM21_Init(void)
   htim21.Instance = TIM21;
   htim21.Init.Prescaler = 32000-1;
   htim21.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim21.Init.Period = 1000-1;
+  htim21.Init.Period = 500-1;
   htim21.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim21.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim21) != HAL_OK)
@@ -750,7 +753,7 @@ static void MX_TIM22_Init(void)
   htim22.Instance = TIM22;
   htim22.Init.Prescaler = 32000-1;
   htim22.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim22.Init.Period = 1000-1;
+  htim22.Init.Period = 10000-1;
   htim22.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim22.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim22) != HAL_OK)
@@ -1058,9 +1061,10 @@ static void Send_Data(eeprom_conf_t e, float pressure, float temperature)		//Var
 	for(int i = 0; i < sizeof(cc1101_power_ramp); i++)
 	{
 		CC1101_Set_Tx_power(&cc1101, cc1101_power_ramp[i]);										//ramp tx power to test rssi
-		CreateTx_DataFrame(tx_fifo_data, cc1101_power_ramp[i], e, pressure, temperature);
+		CreateTx_DataFrame(tx_fifo_data, i, e, pressure, temperature);
 		CC1101_write_TX_FIFO(&cc1101, tx_fifo_data, sizeof(tx_fifo_data));
-		tx_duration = CC1101_SendTx(&cc1101);													//send time, depends on data rate
+		tx_duration = CC1101_SendTx(&cc1101)													;//send time, depends on data rate
+		HAL_Delay(200);
 	}
 	// Status read out
 	tx_counter++;
@@ -1099,6 +1103,7 @@ static void Read_Programming_CMD(void)
 			//read current packet
 			CC1101_read_RX_FIFO(&cc1101, rx, rx_bytes);
 			Write_Programming(rx, &eeprom_conf);
+			CC1101_EnterRx(&cc1101);
 		}
 		else if (marcstate == CC1101_MARC_RXFIFO_OVERFLOW)
 		{
@@ -1132,10 +1137,10 @@ static void Select_Mode(void)
 static void CreateTx_DataFrame(uint8_t *frame, uint8_t power, eeprom_conf_t e, float pressure, float temperature)
 {
     uint8_t i = 1;
-
-    frame[i++] = eeprom_conf.sensorid;
+    //power and sensor id reversde for testing
+    frame[i++] = power;										//eeprom_conf.sensorid;
     frame[i++] = eeprom_conf.sensortype;
-    frame[i++] = power;										//add send power
+    frame[i++] = eeprom_conf.sensorid;						//power;										//add send power
     frame[i++] = tx_counter;                    				//add alive counter
     frame[i++] = abp2status_raw;  								//add sensor status
 

@@ -20,6 +20,7 @@ typedef enum {
 
 typedef struct {
     uint8_t  sensor_id;
+    uint8_t  sensor_type;
     uint8_t  corner_id;
     cc1101_tx_power power;
     uint8_t  counter;

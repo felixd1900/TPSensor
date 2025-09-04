@@ -61,6 +61,8 @@ typedef enum {
 /* Private variables ---------------------------------------------------------*/
 SPI_HandleTypeDef hspi1;
 
+TIM_HandleTypeDef htim21;
+
 /* USER CODE BEGIN PV */
 
 cc1101_t cc1101;
@@ -84,6 +86,8 @@ uint8_t  debug_reg_all_after[46] = {0};
 
 uint8_t tx_fifo[6] = {0x05, PRO_CMD_READ_ALL, 0x01, 0x02, 0x03, 0x04};
 uint8_t tx_counter = 0x01;
+uint8_t pktstatus = 0x00;
+bool tx_send = false;
 
 
 /* USER CODE END PV */
@@ -92,6 +96,7 @@ uint8_t tx_counter = 0x01;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
+static void MX_TIM21_Init(void);
 /* USER CODE BEGIN PFP */
 
 static void ReadRx(void);
@@ -110,6 +115,14 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		//CC1101 complete package received
 		new_data = true;
 	}
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim == &htim21)
+    {
+        tx_send = true;
+    }
 }
 
 /* USER CODE END 0 */
@@ -145,6 +158,7 @@ int main(void)
   MX_GPIO_Init();
   MX_SPI1_Init();
   MX_USB_DEVICE_Init();
+  MX_TIM21_Init();
   /* USER CODE BEGIN 2 */
 
 
@@ -160,15 +174,14 @@ int main(void)
   CC1101_Apply433_38k4(&cc1101);
   CC1101_read_register_burst(&cc1101, CC1101_REG_IOCFG2, debug_reg_all_after, 46);
 
-  CC1101_Set_Rx_threshold(&cc1101, CC1101_RX_0dB);
+  CC1101_Set_Rx_threshold(&cc1101, CC1101_RX_18dB);
 
   // CC1101 Start Rx
   //CC1101_EnterRx(&cc1101);
 
   //programming mode test
-  CC1101_PrepareTx(&cc1101);
-  CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
-  CC1101_SendTx(&cc1101);
+  //CC1101_PrepareTx(&cc1101);
+  CC1101_EnterRx(&cc1101);
 
 
   CC1101_Set_Tx_power(&cc1101, CC1101_TX_10dB);
@@ -190,17 +203,19 @@ int main(void)
 		ReadRx();
 		HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
 		new_data = false;
-		HAL_Delay(1000);
 	}
+	HAL_Delay(5);
 
-
-	tx_fifo[2] = tx_counter;
-	CC1101_PrepareTx(&cc1101);
-	CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
-	CC1101_SendTx(&cc1101);
-	CC1101_EnterRx(&cc1101);
-	CC1101_read_marcstate(&cc1101, &marcstate);
-	tx_counter++;
+	if (tx_send)
+	{
+		tx_fifo[2] = tx_counter;
+		CC1101_PrepareTx(&cc1101);
+		CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
+		CC1101_SendTx(&cc1101);
+		CC1101_EnterRx(&cc1101);
+		CC1101_read_marcstate(&cc1101, &marcstate);
+		tx_counter++;
+	}
 
 
 
@@ -266,6 +281,7 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+  HAL_RCC_MCOConfig(RCC_MCO1, RCC_MCO1SOURCE_SYSCLK, RCC_MCODIV_1);
 }
 
 /**
@@ -303,6 +319,64 @@ static void MX_SPI1_Init(void)
   /* USER CODE BEGIN SPI1_Init 2 */
 
   /* USER CODE END SPI1_Init 2 */
+
+}
+
+/**
+  * @brief TIM21 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM21_Init(void)
+{
+
+  /* USER CODE BEGIN TIM21_Init 0 */
+
+  /* USER CODE END TIM21_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_IC_InitTypeDef sConfigIC = {0};
+
+  /* USER CODE BEGIN TIM21_Init 1 */
+
+  /* USER CODE END TIM21_Init 1 */
+  htim21.Instance = TIM21;
+  htim21.Init.Prescaler = 32000-1;
+  htim21.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim21.Init.Period = 2000-1;
+  htim21.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim21.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim21) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim21, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_IC_Init(&htim21) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim21, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
+  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+  sConfigIC.ICFilter = 0;
+  if (HAL_TIM_IC_ConfigChannel(&htim21, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM21_Init 2 */
+
+  /* USER CODE END TIM21_Init 2 */
 
 }
 
@@ -365,9 +439,9 @@ static void ReadRx(void)
 	//CC1101 RX Status
 	CC1101_read_status(&cc1101, CC1101_STATUS_RXBYTES, &rx_bytes);
 	CC1101_read_marcstate(&cc1101, &marcstate);
+	CC1101_read_status(&cc1101, CC1101_STATUS_PKTSTATUS, &pktstatus);
 
-
-	if ((rx_bytes > 0) && (marcstate == CC1101_MARC_RX))
+	if ((rx_bytes == EXPECTED_BYTES_DATA) && (marcstate == CC1101_MARC_RX))
 	{
 		if (rx_bytes == EXPECTED_BYTES_DATA)
 		{
@@ -396,6 +470,7 @@ static void ParseRx_Frame(uint8_t *frame, sensor_data *val)
 	//skip byte 1, since frame length is no data
     uint8_t i = 1;
     val->sensor_id = frame[i++];									//get sensorid
+    val->sensor_type = frame[i++];									//get sensortype
     val->power = frame[i++];										//get tx power stage
     val->counter = frame[i++];                    					//get alive counter
     val->abp2_status_raw = frame[i++];								//get sensor status

@@ -52,6 +52,7 @@ void sensors_set_sensor(sensor_map_t *sensors, sensor_data sensor_new)
 
     sensor_map_t *s = &sensors[ix];
     s->data.corner_id       = sensor_new.corner_id;
+    s->data.sensor_type     = sensor_new.sensor_type;
     s->data.power           = sensor_new.power;
     s->data.counter         = sensor_new.counter;
     s->data.abp2_status_raw = sensor_new.abp2_status_raw;
