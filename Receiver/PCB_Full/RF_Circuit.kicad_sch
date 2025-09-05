@@ -1713,10 +1713,6 @@
 		(color 0 0 0 0)
 		(uuid "f2c1596d-5459-4a53-b9b7-85af116ba662")
 	)
-	(no_connect
-		(at 73.66 130.81)
-		(uuid "0b6596fb-3592-44f6-9dba-6dda556ebdc1")
-	)
 	(wire
 		(pts
 			(xy 168.91 41.91) (xy 167.64 41.91)

@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include "string.h"
 #include "math.h"
+#include "type_conv.h"
 #include "abp2.h"
 #include "cc1101.h"
 /* USER CODE END Includes */
@@ -98,7 +99,7 @@ typedef struct {
 /* USER CODE BEGIN PD */
 
 #define ABP2_I2C_ID				0x28
-#define TX_FIFO_EEPROM_LEN		35
+#define TX_FIFO_EEPROM_LEN		36
 #define TX_FIFO_DATA_LEN		14
 #define RX_FIFO_EEPROM_LEN		8		// length, cmd, uint32 data, lqi, rssi
 #define RESPONSE_DELAY 			100		//delay in ms when responding to request (wait for other CC1101 to settle in RX)
@@ -200,13 +201,6 @@ static void MX_TIM21_Init(void);
 static void MX_TIM22_Init(void);
 /* USER CODE BEGIN PFP */
 
-static uint32_t EE_ADDR(uint32_t off);
-static uint8_t  EE_ReadU8 (uint32_t off);
-static uint32_t EE_ReadU32(uint32_t off);
-static float EE_ReadF32(uint32_t off);
-static void EE_WriteU8(uint32_t off, uint8_t v);
-static void EE_WriteU32(uint32_t off, uint32_t v);
-static void EE_WriteF32(uint32_t off, float f);
 static void Settings_LoadOrInit(bool firstcall, eeprom_conf_t *e);
 
 
@@ -223,15 +217,8 @@ static void Write_Programming(uint8_t *buf, eeprom_conf_t *e);
 
 static void Select_Mode(void);
 static void CreateTx_DataFrame(uint8_t *frame, uint8_t power, eeprom_conf_t e, float pressure, float temperature);
-static void CreateTx_EEPROMFrame(uint8_t *frame, eeprom_conf_t e);
+static void CreateTx_EEPROMFrame(uint8_t *frame, uint8_t power, eeprom_conf_t e);
 
-static void Float_to_Bytearray(uint8_t p[4], float f);
-static void UINT32_to_Bytearray(uint8_t out[4], uint32_t u);
-static uint32_t Float_to_UINT32(float f);
-
-static uint32_t Bytearray_to_UINT32(const uint8_t p[4]);
-static float UINT32_to_Float(uint32_t u);
-static float Bytearray_to_Float(const uint8_t p[4]);
 
 /* USER CODE END PFP */
 
@@ -375,14 +362,21 @@ int main(void)
 			{
 			case OP_MODE_STORAGE:
 				ema_set_alpha(&ema_pressure, eeprom_conf.storage_time_sample, eeprom_conf.storage_time_sample);		//set alpha
+				// In deployment go to deep sleep and stop timers
+				SetTimer(&htim21, eeprom_conf.storage_time_sample);													//Set Timer for Sample Speed
+				SetTimer(&htim22, eeprom_conf.static_time_tx);														//Set Timer for TX Speed
 				break;
 
 			case OP_MODE_TRANSIENT:
 				ema_set_alpha(&ema_pressure, eeprom_conf.trans_time_sample, eeprom_conf.trans_time_tx);				//set alpha
+				SetTimer(&htim21, eeprom_conf.trans_time_sample);													//Set Timer for Sample Speed
+				SetTimer(&htim22, eeprom_conf.trans_time_tx);														//Set Timer for TX Speed
 				break;
 
 			case OP_MODE_STATIC:
 				ema_set_alpha(&ema_pressure, eeprom_conf.static_time_sample, eeprom_conf.static_time_tx);			//set alpha
+				SetTimer(&htim21, eeprom_conf.static_time_sample);													//Set Timer for Sample Speed
+				SetTimer(&htim22, eeprom_conf.static_time_tx);														//Set Timer for TX Speed
 				break;
 			}
 		}
@@ -484,11 +478,7 @@ int main(void)
 			rx_received = false;
 		}
 	}
-	//Loop Indication & Delay
-	HAL_Delay(1000);
-	HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
   }
-
   /* USER CODE END 3 */
 }
 
@@ -858,55 +848,6 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-//=============================== EEPROM ==================================
-
-static uint32_t EE_ADDR(uint32_t off)
-{
-	return (0x08080000UL + off);
-}
-
-// --- READ ---
-static uint8_t  EE_ReadU8 (uint32_t off)
-{
-	return *(__IO uint8_t*) EE_ADDR(off);
-}
-
-static uint32_t EE_ReadU32(uint32_t off)
-{
-	return *(__IO uint32_t*)EE_ADDR(off);
-}
-
-static float EE_ReadF32(uint32_t off)
-{
-    uint32_t u = EE_ReadU32(off);
-    float f;
-    memcpy(&f, &u, sizeof f);     // Bitwise
-    return f;
-}
-
-// --- WRITE ---
-static void EE_WriteU8(uint32_t off, uint8_t v)
-{
-    if (EE_ReadU8(off) == v) return;
-    HAL_FLASHEx_DATAEEPROM_Unlock();
-    HAL_FLASHEx_DATAEEPROM_Program(FLASH_TYPEPROGRAMDATA_BYTE, EE_ADDR(off), v);
-    HAL_FLASHEx_DATAEEPROM_Lock();
-}
-
-static void EE_WriteU32(uint32_t off, uint32_t v)
-{
-    if (EE_ReadU32(off) == v) return;
-    HAL_FLASHEx_DATAEEPROM_Unlock();
-    HAL_FLASHEx_DATAEEPROM_Program(FLASH_TYPEPROGRAMDATA_WORD, EE_ADDR(off), v);
-    HAL_FLASHEx_DATAEEPROM_Lock();
-}
-
-static void EE_WriteF32(uint32_t off, float f)
-{
-    uint32_t u;
-    memcpy(&u, &f, sizeof u);     // Float-Bits unverändert
-    EE_WriteU32(off, u);
-}
 
 static void Settings_LoadOrInit(bool firstcall, eeprom_conf_t *e)
 {
@@ -1030,7 +971,6 @@ static void SetTimer(TIM_HandleTypeDef *htim, uint32_t timer_ms)
 {
 	timer_ms = timer_ms - 1;
 
-
     __HAL_TIM_DISABLE(htim);                       				// Stop Timer
     __HAL_TIM_SET_AUTORELOAD(htim, timer_ms);          			// Set Timer period
     __HAL_TIM_SET_COUNTER(htim, 0);               				// zero counter
@@ -1063,8 +1003,8 @@ static void Send_Data(eeprom_conf_t e, float pressure, float temperature)		//Var
 		CC1101_Set_Tx_power(&cc1101, cc1101_power_ramp[i]);										//ramp tx power to test rssi
 		CreateTx_DataFrame(tx_fifo_data, i, e, pressure, temperature);
 		CC1101_write_TX_FIFO(&cc1101, tx_fifo_data, sizeof(tx_fifo_data));
-		tx_duration = CC1101_SendTx(&cc1101)													;//send time, depends on data rate
-		HAL_Delay(200);
+		tx_duration = CC1101_SendTx(&cc1101);													//send time, depends on data rate
+		HAL_Delay(100);																			//Added Delay for testing remove for deployment
 	}
 	// Status read out
 	tx_counter++;
@@ -1080,6 +1020,7 @@ static void Send_EEPROM(eeprom_conf_t e)
 		CreateTx_EEPROMFrame(tx_fifo_eeprom, e);
 		CC1101_write_TX_FIFO(&cc1101, tx_fifo_eeprom, sizeof(tx_fifo_eeprom));
 		tx_duration = CC1101_SendTx(&cc1101);											//send time, depends on data rate
+		HAL_Delay(100);																	//Added Delay for testing remove for deployment
 	}
 	// Status read out
 	tx_counter++;
@@ -1150,12 +1091,13 @@ static void CreateTx_DataFrame(uint8_t *frame, uint8_t power, eeprom_conf_t e, f
     frame[0] = i-1;											//add frame length as first byte
 }
 
-static void CreateTx_EEPROMFrame(uint8_t *frame, eeprom_conf_t e)
+static void CreateTx_EEPROMFrame(uint8_t *frame, uint8_t power, eeprom_conf_t e)
 {
     uint8_t i = 1;
 
     frame[i++] = e.sensorid;
     frame[i++] = e.sensortype;
+    frame[i++] = power;
 
     UINT32_to_Bytearray(&frame[i], e.storage_time_sample);			i += 4;
     UINT32_to_Bytearray(&frame[i], e.trans_time_tx);				i += 4;
@@ -1169,51 +1111,6 @@ static void CreateTx_EEPROMFrame(uint8_t *frame, eeprom_conf_t e)
     Float_to_Bytearray(&frame[i], e.trans_press_change);			i += 4;
 
     frame[0] = i-1;											//add frame length as first byte
-}
-
-
-//============================== DATA CONVERSION =================================
-
-static void Float_to_Bytearray(uint8_t p[4], float f)
-{
-    uint32_t u = Float_to_UINT32(f);
-    UINT32_to_Bytearray(p, u);
-}
-
-static void UINT32_to_Bytearray(uint8_t out[4], uint32_t u)
-{
-    out[0] = (uint8_t)(u >> 24);
-    out[1] = (uint8_t)(u >> 16);
-    out[2] = (uint8_t)(u >>  8);
-    out[3] = (uint8_t)(u >>  0);
-}
-
-static uint32_t Float_to_UINT32(float f)
-{
-    uint32_t u;
-    memcpy(&u, &f, sizeof u);   // Bitwise
-    return u;
-}
-
-static uint32_t Bytearray_to_UINT32(const uint8_t p[4])
-{
-    return ((uint32_t)p[0] << 24) |
-           ((uint32_t)p[1] << 16) |
-           ((uint32_t)p[2] <<  8) |
-           ((uint32_t)p[3] <<  0);
-}
-
-static float UINT32_to_Float(uint32_t u)
-{
-    float f;
-    memcpy(&f, &u, sizeof f);   // bitwise
-    return f;
-}
-
-static float Bytearray_to_Float(const uint8_t p[4])
-{
-    uint32_t u = Bytearray_to_UINT32(p);
-    return UINT32_to_Float(u);
 }
 
 

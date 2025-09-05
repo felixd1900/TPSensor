@@ -24,6 +24,7 @@
 /* USER CODE BEGIN Includes */
 #include "cc1101.h"
 #include "sensor_map.h"
+#include "type_conv.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,13 +44,29 @@ typedef enum {
 	PRO_CMD_READ_ALL =					0x50
 } pro_cmd_t;
 
+typedef struct {
+	uint8_t sensorid;						//this is the default sensorid the current id is stored in eeprom
+	uint8_t sensortype;						//0x01 = tyre pressure | 0x02 = brake disk pressure (to be implemented)
+	uint32_t storage_time_sample;			//sample rate tx (ms) in transient mode
+	uint32_t trans_time_tx;					//sample rate tx (ms) in transient mode
+	uint32_t trans_time_sample;				//sample rate abp2 read (ms) in transient mode
+	uint32_t static_time_tx;				//sample rate tx (ms) in transient mode
+	uint32_t static_time_sample;			//sample rate abp2 read (ms) in transient mode
+	float trans_press_thresh1;				//move from storage into transient mode
+	float trans_press_thresh2;				//move from transient mode into storage mode
+	float trans_press_change;				//minimum pressure change to move to transient mode
+	int16_t rssi;
+}eeprom_conf_t;
+
+
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
 #define EXPECTED_BYTES_DATA		16	//bytes send (incl. length) +2 (rssi and lqi)
-#define EXPECTED_BYTES_EEPROM	37	//eeprom config (incl. length) +2 (rssi and lqi)
+#define EXPECTED_BYTES_EEPROM	38	//eeprom config (incl. length) +2 (rssi and lqi)
 
 /* USER CODE END PD */
 
@@ -74,6 +91,7 @@ bool new_data = false;
 
 sensor_data sensor_received;
 sensor_map_t sensor_map[SENSORS_MAX];
+eeprom_conf_t eeprom_conf = {0};
 
 bool Init_complete = false;
 
@@ -100,8 +118,8 @@ static void MX_TIM21_Init(void);
 /* USER CODE BEGIN PFP */
 
 static void ReadRx(void);
-static void ParseRx_Frame(uint8_t *frame, sensor_data *val);
-static void Bytearray_to_Float(uint8_t *p, float *val);
+static void ParseRx_DataFrame(uint8_t *frame, sensor_data *val);
+static void ParseRx_EEPROMFrame(uint8_t *frame, eeprom_conf_t *val);
 
 /* USER CODE END PFP */
 
@@ -197,39 +215,34 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
+	//Toggle LED when TX is send or RX is recived
 
-	if (new_data)
+	if (new_data)	//Triggered by GDO IRQ
 	{
 		ReadRx();
 		HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
 		new_data = false;
 	}
-	HAL_Delay(5);
 
-	if (tx_send)
+	if (tx_send)	//Triggered by Timer --> move to UDP cmd in the future
 	{
+		//Prepare TX FIFO and prepare for TX
 		tx_fifo[2] = tx_counter;
+		tx_counter++;
 		CC1101_PrepareTx(&cc1101);
+
+		//Write FIFO and send FIFO
 		CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
 		CC1101_SendTx(&cc1101);
+
+		//Return back to RX so data can be received
 		CC1101_EnterRx(&cc1101);
 		CC1101_read_marcstate(&cc1101, &marcstate);
-		tx_counter++;
+
+		HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
 	}
 
-
-
-	 /*
-	//Sensor ID write cmd testing
-	CC1101_read_marcstate(&cc1101, &marcstate);
-	tx_fifo[2] = tx_counter;
-	CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
-	CC1101_SendTx(&cc1101);
-	HAL_Delay(2000);
-	tx_counter++;
-	HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
-	*/
-
+	//HAL_Delay(5);		//Might not be required
   }
   /* USER CODE END 3 */
 }
@@ -447,12 +460,13 @@ static void ReadRx(void)
 		{
 			//read all packets received (only if fifo is not read in between)
 			CC1101_read_RX_FIFO(&cc1101, rx, rx_bytes);
-			ParseRx_Frame(rx, &sensor_received);
+			ParseRx_DataFrame(rx, &sensor_received);
 			sensors_set_sensor(sensor_map, sensor_received);
 		}
 		else if (rx_bytes)
 		{
-			//Read all
+			CC1101_read_RX_FIFO(&cc1101, rx, rx_bytes);
+			ParseRx_EEPROMFrame(rx, &eeprom_conf);
 		}
 		else if (marcstate == CC1101_MARC_RXFIFO_OVERFLOW)
 		{
@@ -465,7 +479,7 @@ static void ReadRx(void)
 	}
 }
 
-static void ParseRx_Frame(uint8_t *frame, sensor_data *val)
+static void ParseRx_DataFrame(uint8_t *frame, sensor_data *val)
 {
 	//skip byte 1, since frame length is no data
     uint8_t i = 1;
@@ -475,22 +489,32 @@ static void ParseRx_Frame(uint8_t *frame, sensor_data *val)
     val->counter = frame[i++];                    					//get alive counter
     val->abp2_status_raw = frame[i++];								//get sensor status
 
-    Bytearray_to_Float(&frame[i], &val->abp2_pressure);				//get pressure as uint32
-    i += 4;
-    Bytearray_to_Float(&frame[i], &val->abp2_temperature);			//get temperature as uint32
-    i += 4;
+    val->abp2_pressure = Bytearray_to_Float(&frame[i]);				i += 4;		//get pressure as uint32
+    val->abp2_temperature = Bytearray_to_Float(&frame[i]);			i += 4;		//get temperature as uint32
+
     val->rssi = CC1101_Convert_RSSI(frame[i++]);
 }
 
-static void Bytearray_to_Float(uint8_t *p, float *val)
+static void ParseRx_EEPROMFrame(uint8_t *frame, eeprom_conf_t *val)
 {
-    uint32_t u = ((uint32_t)p[0] << 24) |
-                 ((uint32_t)p[1] << 16) |
-                 ((uint32_t)p[2] <<  8) |
-                 ((uint32_t)p[3] <<  0);
+	//skip byte 1, since frame length is no data
+    uint8_t i = 1;
+    val->sensorid = frame[i++];
+    val->sensortype = frame[i++];
 
-    memcpy(val, &u, sizeof(u));
+    val->storage_time_sample = Bytearray_to_UINT32(&frame[i]);		i += 4;
+    val->trans_time_tx = Bytearray_to_UINT32(&frame[i]);			i += 4;
+    val->trans_time_sample = Bytearray_to_UINT32(&frame[i]);		i += 4;
+    val->static_time_tx = Bytearray_to_UINT32(&frame[i]);			i += 4;
+    val->static_time_sample = Bytearray_to_UINT32(&frame[i]);		i += 4;
+
+    val->trans_press_thresh1 = Bytearray_to_Float(&frame[i]);		i += 4;
+    val->trans_press_thresh2 = Bytearray_to_Float(&frame[i]);		i += 4;
+    val->trans_press_change = Bytearray_to_Float(&frame[i]);		i += 4;
+
+    val->rssi = CC1101_Convert_RSSI(frame[i++]);
 }
+
 
 /* USER CODE END 4 */
 
