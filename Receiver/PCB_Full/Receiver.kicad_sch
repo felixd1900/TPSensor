@@ -7057,7 +7057,7 @@
 		)
 	)
 	(sheet
-		(at 212.09 207.01)
+		(at 304.8 146.05)
 		(size 26.67 35.56)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -7073,7 +7073,7 @@
 		)
 		(uuid "940ae197-b8ce-4c31-bf25-f6143b86701b")
 		(property "Sheetname" "Ethernet_Connection"
-			(at 212.09 206.2984 0)
+			(at 304.8 145.3384 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -7082,7 +7082,7 @@
 			)
 		)
 		(property "Sheetfile" "Ethernet_Connection.kicad_sch"
-			(at 212.09 243.1546 0)
+			(at 304.8 182.1946 0)
 			(effects
 				(font
 					(size 1.27 1.27)
