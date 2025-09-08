@@ -22,7 +22,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "cc1101.h"
+//#include "cc1101.h"
+#include "W5500.h"
 #include "sensor_map.h"
 #include "type_conv.h"
 /* USER CODE END Includes */
@@ -65,8 +66,8 @@ typedef struct {
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define EXPECTED_BYTES_DATA		16	//bytes send (incl. length) +2 (rssi and lqi)
-#define EXPECTED_BYTES_EEPROM	38	//eeprom config (incl. length) +2 (rssi and lqi)
+#define EXPECTED_BYTES_DATA		15	//bytes send +2 (rssi and lqi)
+#define EXPECTED_BYTES_EEPROM	37	//eeprom config +2 (rssi and lqi)
 
 /* USER CODE END PD */
 
@@ -85,15 +86,24 @@ TIM_HandleTypeDef htim21;
 cc1101_t cc1101;
 
 cc1101_marc_state marcstate = CC1101_MARC_SLEEP;
-uint8_t rx_bytes = 0xFF;
-uint8_t rx[50] = {0};		//must be big enough to fit all bytes
-bool new_data = false;
+
+
 
 sensor_data sensor_received;
 sensor_map_t sensor_map[SENSORS_MAX];
 eeprom_conf_t eeprom_conf = {0};
 
 bool Init_complete = false;
+
+//===========CC1101 TX==============
+bool tx_send = false;
+uint8_t tx_fifo[6] = {0x05, PRO_CMD_READ_ALL, 0x01, 0x02, 0x03, 0x04};
+
+//===========CC1101 RX==============
+bool new_data = false;
+uint8_t rx_bytes = 0xFF;
+uint8_t rx[50] = {0};		//must be big enough to fit all bytes
+uint8_t rx_length = 0x00;
 
 //===========Debug variables==============
 uint8_t debug_status_part = 0;
@@ -102,10 +112,24 @@ uint8_t debug_status_ver = 0;
 uint8_t  debug_reg_all_before[46] = {0};
 uint8_t  debug_reg_all_after[46] = {0};
 
-uint8_t tx_fifo[6] = {0x05, PRO_CMD_READ_ALL, 0x01, 0x02, 0x03, 0x04};
-uint8_t tx_counter = 0x01;
-uint8_t pktstatus = 0x00;
-bool tx_send = false;
+uint8_t debug_rx_counter = 0x00;
+uint8_t debug_tx_counter = 0x00;
+uint8_t debug_pktstatus = 0x00;
+
+uint8_t debug_tx_bytes1 = 0xFF;
+uint8_t debug_tx_bytes2 = 0xFF;
+
+
+//===========W5500s==============
+w5500_t w5500;
+uint8_t w5500_version1 = 0xFF;
+uint8_t w5500_version2 = 0xFF;
+uint8_t w5500_header[3];
+
+uint8_t w5500_ip1[4];
+uint8_t w5500_ip2[4];
+uint8_t w5500_ip_write[4] = {0xC0, 0xA8, 0x00, 0x02};
+uint8_t w5500_subnet[4];
 
 
 /* USER CODE END PV */
@@ -180,6 +204,11 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
 
+  /* Disable for W5500 testing
+
+  //Start Timers
+  HAL_TIM_Base_Start_IT(&htim21);
+
   // CC1101 Init
   CC1101_Init(&cc1101, &hspi1, SPI1_CS_GPIO_Port, SPI1_CS_Pin);
 
@@ -203,6 +232,23 @@ int main(void)
 
 
   CC1101_Set_Tx_power(&cc1101, CC1101_TX_10dB);
+  CC1101_read_marcstate(&cc1101, &marcstate);
+  */
+  HAL_GPIO_WritePin(RX_IRQ_GPIO_Port, RX_IRQ_Pin, GPIO_PIN_SET);
+  HAL_Delay(1000);
+
+  w5500_header[0] = (uint8_t)(W5500_ADD_COMMON_VERSIONR >> 8);
+  w5500_header[1] = (uint8_t)(W5500_ADD_COMMON_VERSIONR & 0xFF);
+  w5500_header[2] = (uint8_t)((W5500_BSB_COM_REG << 3) | (W5500_RW_READ << 2));
+
+  W5500_Init(&w5500, &hspi1, SPI1_CS_GPIO_Port, SPI1_CS_Pin);
+
+  W5500_ReadCommon_Register(&w5500, W5500_ADD_COMMON_VERSIONR, &w5500_version1, 1);
+  W5500_ReadCommon_Register(&w5500, W5500_ADD_COMMON_SUBR, w5500_subnet, 4);
+  W5500_ReadCommon_Register(&w5500, W5500_ADD_COMMON_SIPR, w5500_ip1, 4);
+  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SIPR, w5500_ip_write, 4);
+  W5500_ReadCommon_Register(&w5500, W5500_ADD_COMMON_SIPR, w5500_ip2, 4);
+  W5500_ReadCommon_Register(&w5500, W5500_ADD_COMMON_VERSIONR, &w5500_version2, 1);
   Init_complete = true;
 
   /* USER CODE END 2 */
@@ -217,8 +263,10 @@ int main(void)
 
 	//Toggle LED when TX is send or RX is recived
 
+	/* Disable for W5500 testing
 	if (new_data)	//Triggered by GDO IRQ
 	{
+		debug_rx_counter++;
 		ReadRx();
 		HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
 		new_data = false;
@@ -227,22 +275,27 @@ int main(void)
 	if (tx_send)	//Triggered by Timer --> move to UDP cmd in the future
 	{
 		//Prepare TX FIFO and prepare for TX
-		tx_fifo[2] = tx_counter;
-		tx_counter++;
+		tx_fifo[2] = debug_tx_counter;
+		debug_tx_counter++;
 		CC1101_PrepareTx(&cc1101);
 
 		//Write FIFO and send FIFO
 		CC1101_write_TX_FIFO(&cc1101, tx_fifo, sizeof(tx_fifo));
+		CC1101_read_status(&cc1101, CC1101_STATUS_TXBYTES, &debug_tx_bytes1);
 		CC1101_SendTx(&cc1101);
+		CC1101_read_status(&cc1101, CC1101_STATUS_TXBYTES, &debug_tx_bytes2);
 
 		//Return back to RX so data can be received
 		CC1101_EnterRx(&cc1101);
 		CC1101_read_marcstate(&cc1101, &marcstate);
+		tx_send = false;
 
 		HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
 	}
+	*/
 
-	//HAL_Delay(5);		//Might not be required
+
+	HAL_Delay(100);
   }
   /* USER CODE END 3 */
 }
@@ -450,39 +503,46 @@ static void MX_GPIO_Init(void)
 static void ReadRx(void)
 {
 	//CC1101 RX Status
-	CC1101_read_status(&cc1101, CC1101_STATUS_RXBYTES, &rx_bytes);
-	CC1101_read_marcstate(&cc1101, &marcstate);
-	CC1101_read_status(&cc1101, CC1101_STATUS_PKTSTATUS, &pktstatus);
+    CC1101_read_marcstate(&cc1101, &marcstate);
+    if (marcstate == CC1101_MARC_RXFIFO_OVERFLOW)						//Flush FIFO and wait for new message
+    {
+        CC1101_Recover_RX_Overflow(&cc1101);
+        return;
+    }
 
-	if ((rx_bytes == EXPECTED_BYTES_DATA) && (marcstate == CC1101_MARC_RX))
+	CC1101_read_status(&cc1101, CC1101_STATUS_RXBYTES, &rx_bytes);
+	//CC1101_read_status(&cc1101, CC1101_STATUS_PKTSTATUS, &debug_pktstatus);
+
+	if (rx_bytes > 0)
 	{
-		if (rx_bytes == EXPECTED_BYTES_DATA)
+		CC1101_read_RX_FIFO(&cc1101, &rx_length, 1);					//read packet length
+		CC1101_read_status(&cc1101, CC1101_STATUS_RXBYTES, &rx_bytes);	//read again because byte was read from FIFO
+		rx_length = rx_length + 2;										//add rssi and lqi
+
+		if (rx_bytes >= rx_length)
 		{
-			//read all packets received (only if fifo is not read in between)
-			CC1101_read_RX_FIFO(&cc1101, rx, rx_bytes);
-			ParseRx_DataFrame(rx, &sensor_received);
-			sensors_set_sensor(sensor_map, sensor_received);
-		}
-		else if (rx_bytes)
-		{
-			CC1101_read_RX_FIFO(&cc1101, rx, rx_bytes);
-			ParseRx_EEPROMFrame(rx, &eeprom_conf);
-		}
-		else if (marcstate == CC1101_MARC_RXFIFO_OVERFLOW)
-		{
-			CC1101_Recover_RX_Overflow(&cc1101);		//goning to idle is only allowed via flushing rx fifo
-		}
-		else
-		{
-			CC1101_EnterRx(&cc1101);	//flushing fifo in RX state is not possible, so flush in idle state
+			if (rx_length == EXPECTED_BYTES_DATA)						//read Sensor Data
+			{
+				CC1101_read_RX_FIFO(&cc1101, rx, rx_length);
+				ParseRx_DataFrame(rx, &sensor_received);
+				sensors_set_sensor(sensor_map, sensor_received);
+			}
+			else if (rx_length == EXPECTED_BYTES_EEPROM)				//read EEPROM state
+			{
+				CC1101_read_RX_FIFO(&cc1101, rx, rx_length);
+				ParseRx_EEPROMFrame(rx, &eeprom_conf);
+			}
+			else
+			{
+				CC1101_EnterRx(&cc1101);								//unexpected length byte, flush FIFO and wait for correct length byte
+			}
 		}
 	}
 }
 
 static void ParseRx_DataFrame(uint8_t *frame, sensor_data *val)
 {
-	//skip byte 1, since frame length is no data
-    uint8_t i = 1;
+    uint8_t i = 0;
     val->sensor_id = frame[i++];									//get sensorid
     val->sensor_type = frame[i++];									//get sensortype
     val->power = frame[i++];										//get tx power stage
@@ -497,10 +557,10 @@ static void ParseRx_DataFrame(uint8_t *frame, sensor_data *val)
 
 static void ParseRx_EEPROMFrame(uint8_t *frame, eeprom_conf_t *val)
 {
-	//skip byte 1, since frame length is no data
-    uint8_t i = 1;
+    uint8_t i = 0;
     val->sensorid = frame[i++];
     val->sensortype = frame[i++];
+    i++;	//power setting
 
     val->storage_time_sample = Bytearray_to_UINT32(&frame[i]);		i += 4;
     val->trans_time_tx = Bytearray_to_UINT32(&frame[i]);			i += 4;

@@ -241,7 +241,7 @@ void CC1101_Apply433_38k4(cc1101_t *dev)
 	CC1101_write_register(dev, CC1101_REG_FIFOTHR, 0x47); //RX FIFO and TX FIFO Thresholds
 	CC1101_write_register(dev, CC1101_REG_SYNC1, 0xD3);   //Sync Word, High Byte
 	CC1101_write_register(dev, CC1101_REG_SYNC0, 0x91);   //Sync Word, Low Byte
-	CC1101_write_register(dev, CC1101_REG_PKTCTRL1, 0x04);//Packet Automation Control
+	CC1101_write_register(dev, CC1101_REG_PKTCTRL1, 0x0C);//Packet Automation Control
 	CC1101_write_register(dev, CC1101_REG_PKTCTRL0, 0x05);//Packet Automation Control
 	CC1101_write_register(dev, CC1101_REG_CHANNR, 0x00);  //Channel Number
 	CC1101_write_register(dev, CC1101_REG_FSCTRL1, 0x06); //Frequency Synthesizer Control
@@ -340,5 +340,5 @@ uint32_t CC1101_SendTx(cc1101_t *dev)
 {
 	//expected state when starting is idle
 	CC1101_write_strobe(dev, CC1101_STROBE_STX);  			// send Tx FIFO
-	return wait_for_state(dev, CC1101_MARC_IDLE);			//wait to return to idle state
+	return wait_for_state(dev, CC1101_MARC_IDLE);			// wait to return to idle state
 }

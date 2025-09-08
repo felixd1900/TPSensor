@@ -1,6 +1,6 @@
 //============================== DATA CONVERSION =================================
+#include "type_conv.h"
 
-#include "stm32l0xx_hal.h"
 
 void Float_to_Bytearray(uint8_t p[4], float f)
 {

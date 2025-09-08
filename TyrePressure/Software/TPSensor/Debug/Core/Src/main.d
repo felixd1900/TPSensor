@@ -30,7 +30,8 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_spi.h \
  C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_tim.h \
  C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_tim_ex.h \
- ../Core/Inc/abp2.h ../Core/Inc/main.h ../Core/Inc/cc1101.h
+ ../Core/Inc/type_conv.h ../Core/Inc/abp2.h ../Core/Inc/main.h \
+ ../Core/Inc/cc1101.h
 ../Core/Inc/main.h:
 C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h:
 ../Core/Inc/stm32l0xx_hal_conf.h:
@@ -63,6 +64,7 @@ C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l
 C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_spi.h:
 C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_tim.h:
 C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_tim_ex.h:
+../Core/Inc/type_conv.h:
 ../Core/Inc/abp2.h:
 ../Core/Inc/main.h:
 ../Core/Inc/cc1101.h:

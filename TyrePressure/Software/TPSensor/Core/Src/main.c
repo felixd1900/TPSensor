@@ -101,8 +101,8 @@ typedef struct {
 #define ABP2_I2C_ID				0x28
 #define TX_FIFO_EEPROM_LEN		36
 #define TX_FIFO_DATA_LEN		14
-#define RX_FIFO_EEPROM_LEN		8		// length, cmd, uint32 data, lqi, rssi
-#define RESPONSE_DELAY 			100		//delay in ms when responding to request (wait for other CC1101 to settle in RX)
+#define RX_FIFO_EEPROM_LEN		7		// cmd, uint32 data, lqi, rssi
+#define RESPONSE_DELAY 			100		// delay in ms when responding to request (wait for other CC1101 to settle in RX)
 
 /* USER CODE END PD */
 
@@ -161,7 +161,7 @@ uint32_t abp2_sample_timer = 100;
 cc1101_t cc1101;
 uint8_t tx_fifo_eeprom[TX_FIFO_EEPROM_LEN] = {};
 uint8_t tx_fifo_data[TX_FIFO_DATA_LEN] = {};
-uint8_t tx_counter = 0;
+uint8_t debug_tx_counter = 0;
 cc1101_marc_state marcstate = CC1101_MARC_SLEEP;
 bool Init_complete = false;
 uint32_t tx_duration = 0;
@@ -173,6 +173,7 @@ uint32_t tx_timer = 1000;
 uint8_t rx_bytes = 0x00;
 uint8_t rx[RX_FIFO_EEPROM_LEN] = {0};
 bool rx_received = false;
+uint8_t rx_length = 0x00;
 
 //=============Debug variables=============
 uint8_t debug_status_part = 0;
@@ -187,7 +188,10 @@ uint32_t debug_time_ms = 0;
 pro_cmd_t debug_pro_cmd;
 uint8_t debug_cmd_data[4] = {0};
 uint8_t debug_rx_counter = 0;
-uint8_t pktstatus = 0x00;
+uint8_t debug_pktstatus = 0x00;
+
+uint8_t debug_tx_bytes1 = 0xFF;
+uint8_t debug_tx_bytes2 = 0xFF;
 
 /* USER CODE END PV */
 
@@ -295,7 +299,7 @@ int main(void)
   MX_TIM22_Init();
   /* USER CODE BEGIN 2 */
 
-  Settings_LoadOrInit(true, &eeprom_conf);		//true write first time to eeprom, flase read from eeprom
+  Settings_LoadOrInit(false, &eeprom_conf);		//true write first time to eeprom, flase read from eeprom
 
   //Start Timers
   HAL_TIM_Base_Start_IT(&htim21);
@@ -473,7 +477,7 @@ int main(void)
 		//receive programming data and write to eeprom and variables
 		if (rx_received)
 		{
-			CC1101_read_status(&cc1101, CC1101_STATUS_PKTSTATUS, &pktstatus);
+			CC1101_read_status(&cc1101, CC1101_STATUS_PKTSTATUS, &debug_pktstatus);
 			Read_Programming_CMD();
 			rx_received = false;
 		}
@@ -886,8 +890,8 @@ static void Settings_LoadOrInit(bool firstcall, eeprom_conf_t *e)
 static void Write_Programming(uint8_t *buf, eeprom_conf_t *e)
 {
 	//length is byte 0
-	pro_cmd_t cmd = buf[1];
-	uint8_t *data = &buf[2];
+	pro_cmd_t cmd = buf[0];
+	uint8_t *data = &buf[1];
 
 	debug_pro_cmd = cmd;
 	memcpy(debug_cmd_data, buf + 2, sizeof(debug_cmd_data));
@@ -1007,23 +1011,27 @@ static void Send_Data(eeprom_conf_t e, float pressure, float temperature)		//Var
 		HAL_Delay(100);																			//Added Delay for testing remove for deployment
 	}
 	// Status read out
-	tx_counter++;
+	debug_tx_counter++;
 	CC1101_read_marcstate(&cc1101, &marcstate);
 }
 
 static void Send_EEPROM(eeprom_conf_t e)
 {
 	//CC1101 Send with all power levels
+	CC1101_PrepareTx(&cc1101);
 	for(int i = 0; i < sizeof(cc1101_power_ramp); i++)
 	{
 		CC1101_Set_Tx_power(&cc1101, cc1101_power_ramp[i]);								//ramp tx power to test rssi
-		CreateTx_EEPROMFrame(tx_fifo_eeprom, e);
+		CreateTx_EEPROMFrame(tx_fifo_eeprom, i, e);
 		CC1101_write_TX_FIFO(&cc1101, tx_fifo_eeprom, sizeof(tx_fifo_eeprom));
-		tx_duration = CC1101_SendTx(&cc1101);											//send time, depends on data rate
-		HAL_Delay(100);																	//Added Delay for testing remove for deployment
+		CC1101_read_status(&cc1101, CC1101_STATUS_TXBYTES, &debug_tx_bytes1);
+		tx_duration = CC1101_SendTx(&cc1101);
+		CC1101_read_status(&cc1101, CC1101_STATUS_TXBYTES, &debug_tx_bytes2);			//send time, depends on data rate
+		HAL_Delay(50);																	//Added Delay for testing remove for deployment
 	}
 	// Status read out
-	tx_counter++;
+	debug_tx_counter++;
+	CC1101_EnterRx(&cc1101);
 	CC1101_read_marcstate(&cc1101, &marcstate);
 }
 
@@ -1033,22 +1041,27 @@ static void Read_Programming_CMD(void)
 {
 	//CC1101 RX Status
 	debug_rx_counter++;
-	CC1101_read_status(&cc1101, CC1101_STATUS_RXBYTES, &rx_bytes);
-	CC1101_read_marcstate(&cc1101, &marcstate);
+    CC1101_read_marcstate(&cc1101, &marcstate);
+    if (marcstate == CC1101_MARC_RXFIFO_OVERFLOW)						//Flush FIFO and wait for new message
+    {
+        CC1101_Recover_RX_Overflow(&cc1101);
+        return;
+    }
 
+    CC1101_read_status(&cc1101, CC1101_STATUS_RXBYTES, &rx_bytes);
 
-	if ((rx_bytes > 0) && (marcstate == CC1101_MARC_RX))
+	if (rx_bytes > 0)
 	{
+		CC1101_read_RX_FIFO(&cc1101, &rx_length, 1);					//read packet length
+		CC1101_read_status(&cc1101, CC1101_STATUS_RXBYTES, &rx_bytes);	//read again because byte was read from FIFO
+		rx_length = rx_length + 2;										//add rssi and lqi
+
 		if (rx_bytes == RX_FIFO_EEPROM_LEN)
 		{
 			//read current packet
 			CC1101_read_RX_FIFO(&cc1101, rx, rx_bytes);
 			Write_Programming(rx, &eeprom_conf);
 			CC1101_EnterRx(&cc1101);
-		}
-		else if (marcstate == CC1101_MARC_RXFIFO_OVERFLOW)
-		{
-			CC1101_Recover_RX_Overflow(&cc1101);		//goning to idle is only allowed via flushing rx fifo
 		}
 		else
 		{
@@ -1082,7 +1095,7 @@ static void CreateTx_DataFrame(uint8_t *frame, uint8_t power, eeprom_conf_t e, f
     frame[i++] = power;										//eeprom_conf.sensorid;
     frame[i++] = eeprom_conf.sensortype;
     frame[i++] = eeprom_conf.sensorid;						//power;										//add send power
-    frame[i++] = tx_counter;                    				//add alive counter
+    frame[i++] = debug_tx_counter;                    				//add alive counter
     frame[i++] = abp2status_raw;  								//add sensor status
 
     Float_to_Bytearray(&frame[i], pressure);   i += 4;		//add pressure as uint32

@@ -1,6 +1,6 @@
 //============================== DATA CONVERSION =================================
+#include "type_conv.h"
 
-#include "stm32l0xx_hal.h"
 
 void Float_to_Bytearray(uint8_t p[4], float f)
 {
@@ -59,7 +59,7 @@ uint8_t  EE_ReadU8 (uint32_t off)
 	return *(__IO uint8_t*) EE_ADDR(off);
 }
 
-static uint32_t EE_ReadU32(uint32_t off)
+uint32_t EE_ReadU32(uint32_t off)
 {
 	return *(__IO uint32_t*)EE_ADDR(off);
 }

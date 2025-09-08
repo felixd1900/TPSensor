@@ -1,6 +1,11 @@
 #ifndef INC_TYPE_CONV_H_
 #define INC_TYPE_CONV_H_
 
+#pragma once
+#include <stdint.h>
+#include "stm32l0xx_hal.h"
+#include "string.h"
+
 void Float_to_Bytearray(uint8_t p[4], float f);
 void UINT32_to_Bytearray(uint8_t out[4], uint32_t u);
 uint32_t Float_to_UINT32(float f);

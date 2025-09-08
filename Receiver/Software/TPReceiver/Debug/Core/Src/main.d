@@ -24,13 +24,15 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_pwr.h \
  C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_pwr_ex.h \
  C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_spi.h \
+ C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_tim.h \
+ C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_tim_ex.h \
  C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_pcd.h \
  C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_usb.h \
  C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_pcd_ex.h \
  ../USB_DEVICE/App/usb_device.h \
  C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_def.h \
- ../USB_DEVICE/Target/usbd_conf.h ../Core/Inc/cc1101.h ../Core/Inc/main.h \
- ../Core/Inc/sensor_map.h
+ ../USB_DEVICE/Target/usbd_conf.h ../Core/Inc/W5500.h ../Core/Inc/main.h \
+ ../Core/Inc/sensor_map.h ../Core/Inc/cc1101.h ../Core/Inc/type_conv.h
 ../Core/Inc/main.h:
 C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h:
 ../Core/Inc/stm32l0xx_hal_conf.h:
@@ -57,12 +59,16 @@ C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l
 C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_pwr.h:
 C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_pwr_ex.h:
 C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_spi.h:
+C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_tim.h:
+C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_tim_ex.h:
 C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_pcd.h:
 C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_usb.h:
 C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Drivers/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_pcd_ex.h:
 ../USB_DEVICE/App/usb_device.h:
 C:/ST/Repository/STM32Cube_FW_L0_V1.12.3/Middlewares/ST/STM32_USB_Device_Library/Core/Inc/usbd_def.h:
 ../USB_DEVICE/Target/usbd_conf.h:
-../Core/Inc/cc1101.h:
+../Core/Inc/W5500.h:
 ../Core/Inc/main.h:
 ../Core/Inc/sensor_map.h:
+../Core/Inc/cc1101.h:
+../Core/Inc/type_conv.h:

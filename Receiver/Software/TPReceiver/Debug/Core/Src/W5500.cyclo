@@ -1,0 +1,6 @@
+../Core/Src/W5500.c:4:13:cs_high	1
+../Core/Src/W5500.c:9:13:cs_low	1
+../Core/Src/W5500.c:14:13:Create_Header	1
+../Core/Src/W5500.c:21:6:W5500_ReadCommon_Register	1
+../Core/Src/W5500.c:32:6:W5500_WriteCommon_Register	1
+../Core/Src/W5500.c:43:6:W5500_Init	1
