@@ -104,6 +104,34 @@ typedef enum {
     W5500_ADD_SOCKET_KPALVTR   = 0x002F  // 1B
 } w5500_add_socket_t;
 
+typedef enum {
+	W5500_SOCKET_CR_OPEN 		= 0x01,
+	W5500_SOCKET_CR_LISTEN 		= 0x02,
+	W5500_SOCKET_CR_CONNECT		= 0x04,
+	W5500_SOCKET_CR_DISCON 		= 0x08,
+	W5500_SOCKET_CR_CLOSE 		= 0x10,
+	W5500_SOCKET_CR_SEND 		= 0x20,
+	W5500_SOCKET_CR_SENDMAC 	= 0x21,
+	W5500_SOCKET_CR_SENDKEEP 	= 0x22,
+	W5500_SOCKET_CR_RECV 		= 0x40
+}w5500_socket_cr;
+
+typedef enum {
+	W5500_SOCKET_STATUS_CLOSED 			= 0x00,
+	W5500_SOCKET_STATUS_INIT 			= 0x13,
+	W5500_SOCKET_STATUS_LISTEN 			= 0x14,
+	W5500_SOCKET_STATUS_ESTABLISHED 	= 0x17,
+	W5500_SOCKET_STATUS_CLOSEWAIT 		= 0x1C,
+	W5500_SOCKET_STATUS_UDP 			= 0x22,
+	W5500_SOCKET_STATUS_MACRAW 			= 0x42,
+
+	W5500_SOCKET_STATUS_SYNSENT 		= 0x15,
+	W5500_SOCKET_STATUS_SYNRECV 		= 0x16,
+	W5500_SOCKET_STATUS_FINWAIT 		= 0x18,
+	W5500_SOCKET_STATUS_CLOSING 		= 0x1A,
+	W5500_SOCKET_STATUS_TIMEWAIT 		= 0x1B,
+	W5500_SOCKET_STATUS_LASTACK 		= 0x1D,
+}w5500_status;
 
 typedef struct {
     SPI_HandleTypeDef *hspi;
@@ -113,7 +141,11 @@ typedef struct {
 
 //==================== Functions ========================
 void W5500_Init(w5500_t *dev, SPI_HandleTypeDef *hspi, GPIO_TypeDef *cs_port, uint16_t cs_pin);
+
 void W5500_ReadCommon_Register(w5500_t *dev, w5500_add_common_t addr, uint8_t *rx, uint8_t length);
 void W5500_WriteCommon_Register(w5500_t *dev, w5500_add_common_t addr, uint8_t *tx, uint8_t length);
+
+void W5500_ReadSocket(w5500_t *dev, w5500_add_socket_t addr, w5500_bsb_t socket, uint8_t *rx, uint8_t length);
+void W5500_WriteSocket(w5500_t *dev, w5500_add_socket_t addr, w5500_bsb_t socket, uint8_t *tx, uint8_t length);
 
 #endif /* INC_W5500_H_ */
