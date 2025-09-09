@@ -126,10 +126,15 @@ uint8_t w5500_version1 = 0xFF;
 uint8_t w5500_version2 = 0xFF;
 uint8_t w5500_header[3];
 
-uint8_t w5500_ip1[4];
-uint8_t w5500_ip2[4];
-uint8_t w5500_ip_write[4] = {0xC0, 0xA8, 0x00, 0x02};
-uint8_t w5500_subnet[4];
+uint8_t w5500_ip_read[4];
+uint8_t w5500_subnet_read[4];
+uint8_t w5500_mac_read[4];
+uint8_t w5500_gw_read[4];
+
+static const uint8_t W5500_MAC_[6] = {0x02,0x00,0x00,0x00,0x00,0x69}; 	// locally administered
+static const uint8_t W5500_IP [4] = {192,168, 1, 69};					// IP v4
+static const uint8_t W5500_SUBNET[4] = {255,255,255, 0};				// Subnet
+static const uint8_t W5500_GW [4] = {192,168, 1,  1};					// Gateway
 
 
 /* USER CODE END PV */
@@ -237,6 +242,7 @@ int main(void)
   HAL_GPIO_WritePin(RX_IRQ_GPIO_Port, RX_IRQ_Pin, GPIO_PIN_SET);
   HAL_Delay(1000);
 
+  //Leave in for testing only
   w5500_header[0] = (uint8_t)(W5500_ADD_COMMON_VERSIONR >> 8);
   w5500_header[1] = (uint8_t)(W5500_ADD_COMMON_VERSIONR & 0xFF);
   w5500_header[2] = (uint8_t)((W5500_BSB_COM_REG << 3) | (W5500_RW_READ << 2));
@@ -244,10 +250,20 @@ int main(void)
   W5500_Init(&w5500, &hspi1, SPI1_CS_GPIO_Port, SPI1_CS_Pin);
 
   W5500_ReadCommon_Register(&w5500, W5500_ADD_COMMON_VERSIONR, &w5500_version1, 1);
-  W5500_ReadCommon_Register(&w5500, W5500_ADD_COMMON_SUBR, w5500_subnet, 4);
-  W5500_ReadCommon_Register(&w5500, W5500_ADD_COMMON_SIPR, w5500_ip1, 4);
-  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SIPR, w5500_ip_write, 4);
-  W5500_ReadCommon_Register(&w5500, W5500_ADD_COMMON_SIPR, w5500_ip2, 4);
+
+  // Write Initial Config
+  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SHAR, W5500_MAC_, 4);
+  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_GAR, W5500_GW, 4);
+  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SUBR, W5500_SUBNET, 4);
+  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SIPR, W5500_IP, 4);
+
+
+  W5500_ReadCommon_Register(&w5500, W5500_ADD_COMMON_SUBR, w5500_subnet_read, 6);
+  W5500_ReadCommon_Register(&w5500, W5500_ADD_COMMON_SUBR, w5500_subnet_read, 4);
+  W5500_ReadCommon_Register(&w5500, W5500_ADD_COMMON_SUBR, w5500_subnet_read, 4);
+  W5500_ReadCommon_Register(&w5500, W5500_ADD_COMMON_SUBR, w5500_subnet_read, 4);
+
+
   W5500_ReadCommon_Register(&w5500, W5500_ADD_COMMON_VERSIONR, &w5500_version2, 1);
   Init_complete = true;
 
