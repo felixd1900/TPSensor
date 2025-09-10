@@ -145,7 +145,12 @@ void W5500_Init(w5500_t *dev, SPI_HandleTypeDef *hspi, GPIO_TypeDef *cs_port, ui
 void W5500_ReadCommon_Register(w5500_t *dev, w5500_add_common_t addr, uint8_t *rx, uint8_t length);
 void W5500_WriteCommon_Register(w5500_t *dev, w5500_add_common_t addr, uint8_t *tx, uint8_t length);
 
-void W5500_ReadSocket(w5500_t *dev, w5500_add_socket_t addr, w5500_bsb_t socket, uint8_t *rx, uint8_t length);
-void W5500_WriteSocket(w5500_t *dev, w5500_add_socket_t addr, w5500_bsb_t socket, uint8_t *tx, uint8_t length);
+void W5500_ReadSocket(w5500_t *dev, w5500_bsb_t bsb_reg, w5500_add_socket_t addr, uint8_t *rx, uint8_t length);
+void W5500_WriteSocket(w5500_t *dev, w5500_bsb_t bsb_reg, w5500_add_socket_t addr, uint8_t *tx, uint8_t length);
+
+void W5500_WriteSocket_TX(w5500_t *dev, uint8_t socket_nr, uint8_t *tx, uint16_t length);
+
+void W5500_Configure_SocketUDP(w5500_t *dev, uint8_t socket_nr, uint16_t local_port);
+void W5500_SendUDP(w5500_t *dev, uint8_t socket_nr, uint8_t *remote_ip, uint16_t remote_port, uint8_t *tx, uint16_t length);
 
 #endif /* INC_W5500_H_ */

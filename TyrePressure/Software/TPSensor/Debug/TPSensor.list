@@ -4085,10 +4085,10 @@ int main(void)
  8001db6:	f000 fbcf 	bl	8002558 <MX_TIM22_Init>
   /* USER CODE BEGIN 2 */
 
-  Settings_LoadOrInit(true, &eeprom_conf);		//true write first time to eeprom, flase read from eeprom
+  Settings_LoadOrInit(false, &eeprom_conf);		//true write first time to eeprom, flase read from eeprom
  8001dba:	4bdd      	ldr	r3, [pc, #884]	@ (8002130 <main+0x39c>)
  8001dbc:	0019      	movs	r1, r3
- 8001dbe:	2001      	movs	r0, #1
+ 8001dbe:	2000      	movs	r0, #0
  8001dc0:	f000 fcf8 	bl	80027b4 <Settings_LoadOrInit>
 
   //Start Timers

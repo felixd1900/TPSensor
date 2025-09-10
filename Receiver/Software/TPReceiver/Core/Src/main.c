@@ -124,11 +124,16 @@ uint8_t debug_tx_bytes2 = 0xFF;
 w5500_t w5500;
 uint8_t w5500_version = 0xFF;
 
-uint8_t w5500_mac[6] = {0x02,0x00,0x00,0x00,0x00,0x69}; 	// locally administered
-uint8_t w5500_ip [4] = {192,168, 1, 69};					// IP v4
-uint8_t w5500_subnet[4] = {255,255,255, 0};					// Subnet
-uint8_t w5500_gw [4] = {192,168, 1, 1};						// Gateway
+//local config
+uint8_t w5500_local_mac[6] = {0x02,0x00,0x00,0x00,0x00,0x69}; 	// locally administered
+uint8_t w5500_local_ip [4] = {192,168, 1, 69};					// IP v4
+uint8_t w5500_local_subnet[4] = {255,255,255, 0};				// Subnet
+uint8_t w5500_local_gw [4] = {192,168, 1, 1};					// Gateway
 
+//remote config
+uint8_t w5500_remote_ip [4] = {192,168, 1, 107};				// IP v4
+uint16_t w5500_remote_port = 60002;
+uint8_t w5500_tx_data[8] = {0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80};
 
 /* USER CODE END PV */
 
@@ -241,11 +246,13 @@ int main(void)
   W5500_ReadCommon_Register(&w5500, W5500_ADD_COMMON_VERSIONR, &w5500_version, 1);
 
   // Write Initial Config
-  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SHAR, w5500_mac, 4);				// MAC Addresse
-  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_GAR, w5500_gw, 4);				// Gateway
-  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SUBR, w5500_subnet, 4);			// Subnet Mask
-  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SIPR, w5500_ip, 4);				// IP Addresse
+  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SHAR, w5500_local_mac, 6);				// MAC Addresse
+  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_GAR, w5500_local_gw, 4);				// Gateway
+  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SUBR, w5500_local_subnet, 4);			// Subnet Mask
+  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SIPR, w5500_local_ip, 4);				// IP Addresse
 
+
+  W5500_Configure_SocketUDP(&w5500, 0, 5000);
 
 
   Init_complete = true;
@@ -260,7 +267,9 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	//Toggle LED when TX is send or RX is recived
+
+	W5500_SendUDP(&w5500, 0, w5500_remote_ip, w5500_remote_port, w5500_tx_data, sizeof(w5500_tx_data));
+	HAL_Delay(100);
 
 	/* Disable for W5500 testing
 	if (new_data)	//Triggered by GDO IRQ
@@ -292,9 +301,6 @@ int main(void)
 		HAL_GPIO_TogglePin(Debug_LED_GPIO_Port, Debug_LED_Pin);
 	}
 	*/
-
-
-	HAL_Delay(100);
   }
   /* USER CODE END 3 */
 }
