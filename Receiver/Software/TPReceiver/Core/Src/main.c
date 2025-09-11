@@ -131,9 +131,18 @@ uint8_t w5500_local_subnet[4] = {255,255,255, 0};				// Subnet
 uint8_t w5500_local_gw [4] = {192,168, 1, 1};					// Gateway
 
 //remote config
+uint8_t header[3];
 uint8_t w5500_remote_ip [4] = {192,168, 1, 107};				// IP v4
 uint16_t w5500_remote_port = 60002;
 uint8_t w5500_tx_data[8] = {0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80};
+uint8_t mask = 0x00;
+bool sendok = true;
+uint8_t free_tx[2];
+uint8_t pointer_tx[2];
+uint8_t pointer_tx_read[2];
+uint16_t off_old_U16;
+uint16_t off_new_U16;
+uint8_t off_new_U8[2];
 
 /* USER CODE END PV */
 
@@ -251,6 +260,7 @@ int main(void)
   W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SUBR, w5500_local_subnet, 4);			// Subnet Mask
   W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SIPR, w5500_local_ip, 4);				// IP Addresse
 
+  W5500_ReadSocket(&w5500, W5500_BSB_0_REG, W5500_ADD_SOCKET_IMR, &mask, 1);
 
   W5500_Configure_SocketUDP(&w5500, 0, 5000);
 
@@ -267,8 +277,19 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
+	W5500_ReadSocket(&w5500, W5500_BSB_0_REG, W5500_ADD_SOCKET_TX_FSR, free_tx, 2);
+
+	W5500_ReadSocket(&w5500, W5500_BSB_0_REG, W5500_ADD_SOCKET_TX_WR, pointer_tx, 2);
+	W5500_ReadSocket(&w5500, W5500_BSB_0_REG, W5500_ADD_SOCKET_TX_RD, pointer_tx_read, 2);
+	off_old_U16 = ((uint16_t)pointer_tx[0] << 8) | (uint16_t)pointer_tx[1];
+	off_new_U16 = off_old_U16 + 8;
+	off_new_U8[0] = (uint8_t)(off_new_U16 >> 8);
+	off_new_U8[1] = (uint8_t)off_new_U16;
+	W5500_Create_Header(header, off_new_U16, W5500_BSB_0_TX, W5500_RW_WRITE);
 
 	W5500_SendUDP(&w5500, 0, w5500_remote_ip, w5500_remote_port, w5500_tx_data, sizeof(w5500_tx_data));
+	sendok = W5500_WaitSocket_SendOK(&w5500, 0);
+
 	HAL_Delay(100);
 
 	/* Disable for W5500 testing

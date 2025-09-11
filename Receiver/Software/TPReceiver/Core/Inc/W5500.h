@@ -4,6 +4,7 @@
 #pragma once
 #include "main.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 #define W5505_MISO_GPIO_Port  	SPI1_CS_GPIO_Port
 #define W5505_MISO_Pin        	SPI1_CS_Pin
@@ -51,60 +52,61 @@ typedef enum {
 
 // Common Register: nur Startadressen für Blockzugriffe
 typedef enum {
-    W5500_ADD_COMMON_MR        = 0x0000,
-    W5500_ADD_COMMON_GAR       = 0x0001, // 4B
-    W5500_ADD_COMMON_SUBR      = 0x0005, // 4B
-    W5500_ADD_COMMON_SHAR      = 0x0009, // 6B
-    W5500_ADD_COMMON_SIPR      = 0x000F, // 4B
-    W5500_ADD_COMMON_INTLEVEL  = 0x0013, // 2B
-    W5500_ADD_COMMON_IR        = 0x0015, // 1B
-    W5500_ADD_COMMON_IMR       = 0x0016, // 1B
-    W5500_ADD_COMMON_SIR       = 0x0017, // 1B
-    W5500_ADD_COMMON_SIMR      = 0x0018, // 1B
-    W5500_ADD_COMMON_RTR       = 0x0019, // 2B
-    W5500_ADD_COMMON_RCR       = 0x001B, // 1B
-    W5500_ADD_COMMON_PTIMER    = 0x001C, // 1B
-    W5500_ADD_COMMON_PMAGIC    = 0x001D, // 1B
-    W5500_ADD_COMMON_PHAR      = 0x001E, // 6B
-    W5500_ADD_COMMON_PSID      = 0x0024, // 2B
-    W5500_ADD_COMMON_PMRU      = 0x0026, // 2B
-    W5500_ADD_COMMON_UIPR      = 0x0028, // 4B
-    W5500_ADD_COMMON_UPORTR    = 0x002C, // 2B
-    W5500_ADD_COMMON_PHYCFGR   = 0x002E, // 1B
-    W5500_ADD_COMMON_VERSIONR  = 0x0039  // 1B
+    W5500_ADD_COMMON_MR        = 0x00,
+    W5500_ADD_COMMON_GAR       = 0x01, // 4B
+    W5500_ADD_COMMON_SUBR      = 0x05, // 4B
+    W5500_ADD_COMMON_SHAR      = 0x09, // 6B
+    W5500_ADD_COMMON_SIPR      = 0x0F, // 4B
+    W5500_ADD_COMMON_INTLEVEL  = 0x13, // 2B
+    W5500_ADD_COMMON_IR        = 0x15, // 1B
+    W5500_ADD_COMMON_IMR       = 0x16, // 1B
+    W5500_ADD_COMMON_SIR       = 0x17, // 1B
+    W5500_ADD_COMMON_SIMR      = 0x18, // 1B
+    W5500_ADD_COMMON_RTR       = 0x19, // 2B
+    W5500_ADD_COMMON_RCR       = 0x1B, // 1B
+    W5500_ADD_COMMON_PTIMER    = 0x1C, // 1B
+    W5500_ADD_COMMON_PMAGIC    = 0x1D, // 1B
+    W5500_ADD_COMMON_PHAR      = 0x1E, // 6B
+    W5500_ADD_COMMON_PSID      = 0x24, // 2B
+    W5500_ADD_COMMON_PMRU      = 0x26, // 2B
+    W5500_ADD_COMMON_UIPR      = 0x28, // 4B
+    W5500_ADD_COMMON_UPORTR    = 0x2C, // 2B
+    W5500_ADD_COMMON_PHYCFGR   = 0x2E, // 1B
+    W5500_ADD_COMMON_VERSIONR  = 0x39  // 1B
 } w5500_add_common_t;
 
 // Socket-n Register: ebenfalls nur Basis-Offsets
 typedef enum {
-    W5500_ADD_SOCKET_MR        = 0x0000, // 1B
-    W5500_ADD_SOCKET_CR        = 0x0001, // 1B
-    W5500_ADD_SOCKET_IR        = 0x0002, // 1B
-    W5500_ADD_SOCKET_SR        = 0x0003, // 1B
+    W5500_ADD_SOCKET_MR        = 0x00, // 1B
+    W5500_ADD_SOCKET_CR        = 0x01, // 1B
+    W5500_ADD_SOCKET_IR        = 0x02, // 1B
+    W5500_ADD_SOCKET_SR        = 0x03, // 1B
 
-    W5500_ADD_SOCKET_PORT      = 0x0004, // 2B (Sn_PORT0/1)
-    W5500_ADD_SOCKET_DHAR      = 0x0006, // 6B
-    W5500_ADD_SOCKET_DIPR      = 0x000C, // 4B
-    W5500_ADD_SOCKET_DPORT     = 0x0010, // 2B
-    W5500_ADD_SOCKET_MSSR      = 0x0012, // 2B
+    W5500_ADD_SOCKET_PORT      = 0x04, // 2B (Sn_PORT0/1)
+    W5500_ADD_SOCKET_DHAR      = 0x06, // 6B
+    W5500_ADD_SOCKET_DIPR      = 0x0C, // 4B
+    W5500_ADD_SOCKET_DPORT     = 0x10, // 2B
+    W5500_ADD_SOCKET_MSSR      = 0x12, // 2B
     // 0x0014 reserved
-    W5500_ADD_SOCKET_TOS       = 0x0015, // 1B
-    W5500_ADD_SOCKET_TTL       = 0x0016, // 1B
-    W5500_ADD_SOCKET_RXBUF_SIZE= 0x001E, // 1B
-    W5500_ADD_SOCKET_TXBUF_SIZE= 0x001F, // 1B
+    W5500_ADD_SOCKET_TOS       = 0x15, // 1B
+    W5500_ADD_SOCKET_TTL       = 0x16, // 1B
+    W5500_ADD_SOCKET_RXBUF_SIZE= 0x1E, // 1B
+    W5500_ADD_SOCKET_TXBUF_SIZE= 0x1F, // 1B
 
-    W5500_ADD_SOCKET_TX_FSR    = 0x0020, // 2B
-    W5500_ADD_SOCKET_TX_RD     = 0x0022, // 2B
-    W5500_ADD_SOCKET_TX_WR     = 0x0024, // 2B
-    W5500_ADD_SOCKET_RX_RSR    = 0x0026, // 2B
-    W5500_ADD_SOCKET_RX_RD     = 0x0028, // 2B
-    W5500_ADD_SOCKET_RX_WR     = 0x002A, // 2B
+    W5500_ADD_SOCKET_TX_FSR    = 0x20, // 2B
+    W5500_ADD_SOCKET_TX_RD     = 0x22, // 2B
+    W5500_ADD_SOCKET_TX_WR     = 0x24, // 2B
+    W5500_ADD_SOCKET_RX_RSR    = 0x26, // 2B
+    W5500_ADD_SOCKET_RX_RD     = 0x28, // 2B
+    W5500_ADD_SOCKET_RX_WR     = 0x2A, // 2B
 
-    W5500_ADD_SOCKET_IMR       = 0x002C, // 1B
-    W5500_ADD_SOCKET_FRAG      = 0x002D, // 2B
-    W5500_ADD_SOCKET_KPALVTR   = 0x002F  // 1B
+    W5500_ADD_SOCKET_IMR       = 0x2C, // 1B
+    W5500_ADD_SOCKET_FRAG      = 0x2D, // 2B
+    W5500_ADD_SOCKET_KPALVTR   = 0x2F  // 1B
 } w5500_add_socket_t;
 
 typedef enum {
+	W5500_SOCKET_CR_ACK 		= 0x00,
 	W5500_SOCKET_CR_OPEN 		= 0x01,
 	W5500_SOCKET_CR_LISTEN 		= 0x02,
 	W5500_SOCKET_CR_CONNECT		= 0x04,
@@ -140,13 +142,16 @@ typedef struct {
 } w5500_t;
 
 //==================== Functions ========================
+void W5500_Create_Header(uint8_t header[3], uint16_t addr, w5500_bsb_t bsb, w5500_rw rw);
 void W5500_Init(w5500_t *dev, SPI_HandleTypeDef *hspi, GPIO_TypeDef *cs_port, uint16_t cs_pin);
 
 void W5500_ReadCommon_Register(w5500_t *dev, w5500_add_common_t addr, uint8_t *rx, uint8_t length);
 void W5500_WriteCommon_Register(w5500_t *dev, w5500_add_common_t addr, uint8_t *tx, uint8_t length);
 
-void W5500_ReadSocket(w5500_t *dev, w5500_bsb_t bsb_reg, w5500_add_socket_t addr, uint8_t *rx, uint8_t length);
-void W5500_WriteSocket(w5500_t *dev, w5500_bsb_t bsb_reg, w5500_add_socket_t addr, uint8_t *tx, uint8_t length);
+void W5500_ReadSocket(w5500_t *dev, w5500_bsb_t bsb_reg, uint16_t addr, uint8_t *rx, uint8_t length);
+void W5500_WriteSocket(w5500_t *dev, w5500_bsb_t bsb_reg, uint16_t addr, uint8_t *tx, uint8_t length);
+uint32_t W5500_WaitSocket_Status(w5500_t *dev, uint8_t socket_nr, w5500_status status_new);
+bool W5500_WaitSocket_SendOK(w5500_t *dev, uint8_t socket_nr);
 
 void W5500_WriteSocket_TX(w5500_t *dev, uint8_t socket_nr, uint8_t *tx, uint16_t length);
 
