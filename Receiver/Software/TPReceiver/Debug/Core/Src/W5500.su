@@ -13,4 +13,4 @@
 ../Core/Src/W5500.c:111:6:W5500_WaitSocket_SendOK	56	static
 ../Core/Src/W5500.c:141:6:W5500_WriteSocket_TX	64	static
 ../Core/Src/W5500.c:159:6:W5500_Configure_SocketUDP	56	static
-../Core/Src/W5500.c:177:6:W5500_SendUDP	56	static
+../Core/Src/W5500.c:178:6:W5500_SendUDP	56	static

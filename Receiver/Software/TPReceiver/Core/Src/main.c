@@ -69,6 +69,9 @@ typedef struct {
 #define EXPECTED_BYTES_DATA		15	//bytes send +2 (rssi and lqi)
 #define EXPECTED_BYTES_EEPROM	37	//eeprom config +2 (rssi and lqi)
 
+#define W5500_IP
+#define W5500_IP
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -125,24 +128,21 @@ w5500_t w5500;
 uint8_t w5500_version = 0xFF;
 
 //local config
-uint8_t w5500_local_mac[6] = {0x02,0x00,0x00,0x00,0x00,0x69}; 	// locally administered
-uint8_t w5500_local_ip [4] = {192,168, 1, 69};					// IP v4
-uint8_t w5500_local_subnet[4] = {255,255,255, 0};				// Subnet
-uint8_t w5500_local_gw [4] = {192,168, 1, 1};					// Gateway
+uint8_t w5500_max_local[6] = {0x02,0x00,0x00,0x00,0x00,0x69}; 	// locally administered
+uint8_t w5500_ip_local [4] = {192,168, 1, 69};					// local IP
+uint8_t w5500_subnet_local[4] = {255,255,255, 0};				// Subnet
+uint8_t w5500_gw_local [4] = {192,168, 1, 1};					// Gateway
+
+uint8_t w5500_socket_rx = 1;
+uint8_t w5500_socket_tx = 0;
+
+uint16_t w5500_TXport_local = 5000;
+uint16_t w5500_RXport_local = 5001;
 
 //remote config
-uint8_t header[3];
-uint8_t w5500_remote_ip [4] = {192,168, 1, 107};				// IP v4
-uint16_t w5500_remote_port = 60002;
-uint8_t w5500_tx_data[8] = {0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80};
-uint8_t mask = 0x00;
-bool sendok = true;
-uint8_t free_tx[2];
-uint8_t pointer_tx[2];
-uint8_t pointer_tx_read[2];
-uint16_t off_old_U16;
-uint16_t off_new_U16;
-uint8_t off_new_U8[2];
+uint8_t w5500_ip_remote [4] = {192,168, 1, 107};				// remote IP
+uint16_t w5500_TXport_remote = 60002;
+uint8_t w5500_data_tx[8] = {0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80};
 
 /* USER CODE END PV */
 
@@ -215,11 +215,11 @@ int main(void)
   MX_TIM21_Init();
   /* USER CODE BEGIN 2 */
 
+  //Start Timers
+  HAL_TIM_Base_Start_IT(&htim21);
 
   /* Disable for W5500 testing
 
-  //Start Timers
-  HAL_TIM_Base_Start_IT(&htim21);
 
   // CC1101 Init
   CC1101_Init(&cc1101, &hspi1, SPI1_CS_GPIO_Port, SPI1_CS_Pin);
@@ -246,23 +246,24 @@ int main(void)
   CC1101_Set_Tx_power(&cc1101, CC1101_TX_10dB);
   CC1101_read_marcstate(&cc1101, &marcstate);
   */
-  HAL_GPIO_WritePin(RX_IRQ_GPIO_Port, RX_IRQ_Pin, GPIO_PIN_SET);
+
+  //W5500 Init
+  HAL_GPIO_WritePin(RX_IRQ_GPIO_Port, RX_IRQ_Pin, GPIO_PIN_SET);			//Move to other pin on deployment
   HAL_Delay(1000);
-
-
   W5500_Init(&w5500, &hspi1, SPI1_CS_GPIO_Port, SPI1_CS_Pin);
-
   W5500_ReadCommon_Register(&w5500, W5500_ADD_COMMON_VERSIONR, &w5500_version, 1);
 
-  // Write Initial Config
-  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SHAR, w5500_local_mac, 6);				// MAC Addresse
-  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_GAR, w5500_local_gw, 4);				// Gateway
-  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SUBR, w5500_local_subnet, 4);			// Subnet Mask
-  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SIPR, w5500_local_ip, 4);				// IP Addresse
+  // W5500 Network Config
+  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SHAR, w5500_max_local, 6);				// MAC Addresse
+  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_GAR, w5500_gw_local, 4);				// Gateway
+  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SUBR, w5500_subnet_local, 4);			// Subnet Mask
+  W5500_WriteCommon_Register(&w5500, W5500_ADD_COMMON_SIPR, w5500_ip_local, 4);				// IP Addresse
 
-  W5500_ReadSocket(&w5500, W5500_BSB_0_REG, W5500_ADD_SOCKET_IMR, &mask, 1);
+  //W5500 TX/RX Config
+  W5500_Configure_SocketUDP(&w5500, w5500_socket_tx, w5500_TXport_local);			//TX Port
+  W5500_Configure_SocketUDP(&w5500, w5500_socket_rx, w5500_RXport_local);			//TX Port
 
-  W5500_Configure_SocketUDP(&w5500, 0, 5000);
+  //W5500 RX Config
 
 
   Init_complete = true;
@@ -277,20 +278,13 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	W5500_ReadSocket(&w5500, W5500_BSB_0_REG, W5500_ADD_SOCKET_TX_FSR, free_tx, 2);
+	if (tx_send)
+	{
+		W5500_SendUDP(&w5500, 0, w5500_ip_remote, w5500_TXport_remote, w5500_data_tx, sizeof(w5500_data_tx));
+		tx_send = false;
+	}
 
-	W5500_ReadSocket(&w5500, W5500_BSB_0_REG, W5500_ADD_SOCKET_TX_WR, pointer_tx, 2);
-	W5500_ReadSocket(&w5500, W5500_BSB_0_REG, W5500_ADD_SOCKET_TX_RD, pointer_tx_read, 2);
-	off_old_U16 = ((uint16_t)pointer_tx[0] << 8) | (uint16_t)pointer_tx[1];
-	off_new_U16 = off_old_U16 + 8;
-	off_new_U8[0] = (uint8_t)(off_new_U16 >> 8);
-	off_new_U8[1] = (uint8_t)off_new_U16;
-	W5500_Create_Header(header, off_new_U16, W5500_BSB_0_TX, W5500_RW_WRITE);
 
-	W5500_SendUDP(&w5500, 0, w5500_remote_ip, w5500_remote_port, w5500_tx_data, sizeof(w5500_tx_data));
-	sendok = W5500_WaitSocket_SendOK(&w5500, 0);
-
-	HAL_Delay(100);
 
 	/* Disable for W5500 testing
 	if (new_data)	//Triggered by GDO IRQ
@@ -436,7 +430,7 @@ static void MX_TIM21_Init(void)
   htim21.Instance = TIM21;
   htim21.Init.Prescaler = 32000-1;
   htim21.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim21.Init.Period = 2000-1;
+  htim21.Init.Period = 100-1;
   htim21.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim21.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim21) != HAL_OK)

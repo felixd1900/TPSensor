@@ -171,6 +171,7 @@ void W5500_Configure_SocketUDP(w5500_t *dev, uint8_t socket_nr, uint16_t local_p
 	W5500_WriteSocket(dev, socket_register, W5500_ADD_SOCKET_TXBUF_SIZE, &txbuf_size, 1);						// TX Buffer Size 2kB (default value)
 	W5500_WriteSocket(dev, socket_register, W5500_ADD_SOCKET_CR, (uint8_t[]){ W5500_SOCKET_CR_OPEN }, 1);		// Open Socket
 	// Wait for Status Register (w5500_status == W5500_SOCKET_STATUS_UDP)
+	// Socket Interrupt Mask already set by default --> Sn_IMR
 }
 
 
@@ -187,5 +188,21 @@ void W5500_SendUDP(w5500_t *dev, uint8_t socket_nr, uint8_t *remote_ip, uint16_t
 	W5500_WriteSocket_TX(dev, socket_nr, tx, length);															//read TX buffer pointer adresse (offset) --> _TX_WR
 																												//write tx buffer to offset read from _TX_WR
 	W5500_WriteSocket(dev, socket_register, W5500_ADD_SOCKET_CR, (uint8_t[]){ W5500_SOCKET_CR_SEND }, 1);		//set _CR to SEND
-	//wait for sendok or timeout from _IR
+	W5500_WaitSocket_SendOK(dev, socket_nr);
+}
+
+void W5500_ReceiveUDP(w5500_t *dev, uint8_t socket_nr, uint8_t *rx)
+{
+	//IMP and SMIR need to be enabled for this to work with interrupts
+	uint8_t socket_irq = 0xFF;
+	w5500_bsb_t socket_register = Get_Reg_by_SocketNr(socket_nr);
+	uint16_t num_rx = 0x00;
+
+	W5500_ReadSocket(dev, socket_register, W5500_ADD_SOCKET_TX_WR, &socket_irq, 1);
+	if (socket_nr == socket_irq)
+	{
+		uint8_t pointerU8[2];
+		W5500_ReadSocket(dev, socket_register, W5500_ADD_SOCKET_RX_RD, &pointerU8, 2);
+		uint16_t off_old_U16 = { ((uint16_t)pointerU8[0] << 8) | (uint16_t)pointerU8[1] };
+	}
 }
